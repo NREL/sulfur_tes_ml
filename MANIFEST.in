@@ -1,0 +1,2 @@
+include versioneer.py
+include stesml/_version.py
