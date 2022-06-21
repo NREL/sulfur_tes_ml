@@ -5,7 +5,8 @@ import numpy as np
 from sklearn.model_selection import RepeatedKFold
 
 def get_train_and_test_index(scenario_index):
-    random_state = random.randrange(2652124)
+    #random_state = random.randrange(2652124)
+    random_state = 5
     cv = RepeatedKFold(n_splits=5, n_repeats=1, random_state=random_state)
 
     train_index, test_index  = next(cv.split(scenario_index.index))
@@ -26,7 +27,6 @@ def load_data(scenario_index, selected_index, is_recurrent_test_data=False):
         df_arr.append(f_df)
     
     if is_recurrent_test_data:
-        print(df_arr)
         return df_arr
     
     combined_df = pd.concat(df_arr)

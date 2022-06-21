@@ -12,7 +12,7 @@ def get_train_and_test_index(scenario_index):
     
     return train_index, test_index
 
-def load_data_sulfur(scenario_index, selected_index, is_recurrent_test_data=False, per_case=False):
+def load_data_sulfur(scenario_index, selected_index, is_recurrent_test_data=False, per_case=False, x=0):
     """ Load data from files in scenario_index with indices matching ones in selected_index"""
     
     df_arr = []
@@ -23,17 +23,17 @@ def load_data_sulfur(scenario_index, selected_index, is_recurrent_test_data=Fals
         f_df = pd.read_csv(f)
         
         ### ADDITIONS FOR BASE CASE MODEL
-        for i in range(10000,20000):
-            if f_df["flow-time"][i] > 1000:
-                f_df["Tx"] = f_df["Tavg"][i]
-                x = i
-                break
+        if x > 0:
+            for i in range(10*x,20*x):
+                if f_df["flow-time"][i] >= x:
+                    f_df["Tx"] = f_df["Tavg"][i]
+                    break
         ### END ADDITIONS
         
         f_df["Ti"] = Ti
         
         if per_case:
-            f_df = f_df.head(x)
+            f_df = f_df.head(x*10)
         
         df_arr.append(f_df)
     
@@ -66,28 +66,54 @@ def series_to_supervised(data, n_in=1, n_out=1, dropnan=True, per_case=False):
         
     return combined_df.values
 
-def get_train_data_sulfur(scenario_index, train_index, test_index, is_recurrent=False, target='T',  per_case=False):
-    train_df = load_data_sulfur(scenario_index, train_index)
+def get_train_data_sulfur(scenario_index, train_index, test_index, is_recurrent=False, target='T',  per_case=False, x=0):
+    train_df = load_data_sulfur(scenario_index, train_index, x=x)
     if is_recurrent:
         if target == 'T':
-            train = train_df[["flow-time", "Tw", "Ti", "Tavg", "Tx"]].to_numpy()
+            if x > 0:
+                train = train_df[["flow-time", "Tw", "Ti", "Tx", "Tavg"]]
+            else:
+                train = train_df[["flow-time", "Tw", "Ti", "Tavg"]]
         elif target == 'h':
-            train = train_df[["Time", "Tw", "Ti", "h", "Tx"]].to_numpy()
+            if x > 0:
+                train = train_df[["flow-time", "Tw", "Ti", "Tx", "h"]]
+            else:
+                train = train_df[["flow-time", "Tw", "Ti", "h"]]
         else:
             print('Target must be T or h.\n')
             return None
+        if per_case:
+            test_df = load_data_sulfur(scenario_index, test_index, per_case=per_case, x=x)
+            if target == 'T':
+                if x > 0:
+                    test = test_df[["flow-time", "Tw", "Ti", "Tx", "Tavg"]]
+                else:
+                    test = test_df[["flow-time", "Tw", "Ti", "Tavg"]]
+            elif target == 'h':
+                if x > 0:
+                    test = test_df[["flow-time", "Tw", "Ti", "Tx", "h"]]
+                else:
+                    test = test_df[["flow-time", "Tw", "Ti", "h"]]
+            train = pd.concat([train, test]).to_numpy()
+        else:
+            train = train.to_numpy()
         train_shift = pd.DataFrame(series_to_supervised(train))
-        train_shift = pd.DataFrame(series_to_supervised(train))
+        print(train_shift)
         # Get rid of last prediction for each set, 
         # because the next datapoint is the first datapoint of the next set
         train_shift.drop(abs(train_shift[train_shift[0] == 0].index - 1), inplace = True)
-        # Get rid of samples before 0.2 seconds to ensure all timesteps are equal to 0.1
-        train_shift.drop(train_shift[train_shift[0] < 0.2].index, inplace = True)
+        # Get rid of samples before 1 second to ensure all timesteps are equal to 0.1
+        train_shift.drop(train_shift[train_shift[0] < 1].index, inplace = True)
         train_shift = train_shift.to_numpy()
-        X_train = train_shift[:, 0:5]
+        # For training, get Tw, Ti, Tx, & Tavg_t-1 for X
+        X_train = train_shift[:, 1:5]
+        # Get Tavg_t for y
         y_train = train_shift[:, -1]
     else:
-        X_train = train_df[["flow-time", "Tw", "Ti", "Tx"]]
+        if x > 0:
+            X_train = train_df[["flow-time", "Tw", "Ti", "Tx"]]
+        else:
+            X_train = train_df[["flow-time", "Tw", "Ti"]]
         if target == 'T':
             y_train = train_df[["Tavg"]]
         elif target == 'h':
@@ -96,7 +122,7 @@ def get_train_data_sulfur(scenario_index, train_index, test_index, is_recurrent=
             print('Target must be T or h.\n')
             return None
         if per_case:
-            test_df = load_data_sulfur(scenario_index, test_index, per_case=per_case)
+            test_df = load_data_sulfur(scenario_index, test_index, per_case=per_case, x=x)
             X_test = test_df[["flow-time", "Tw", "Ti", "Tx"]]
             if target == 'T':
                 y_test = test_df[["Tavg"]]
@@ -109,31 +135,45 @@ def get_train_data_sulfur(scenario_index, train_index, test_index, is_recurrent=
             y_train = y_train.to_numpy().reshape(-1,)
     return X_train, y_train
 
-def get_test_data_sulfur(scenario_index, test_index, is_recurrent=False, target='T'):
+def get_test_data_sulfur(scenario_index, test_index, is_recurrent=False, target='T', x=0):
     if is_recurrent:
-        test_data = load_data_sulfur(scenario_index, test_index, is_recurrent_test_data=True)
+        test_data = load_data_sulfur(scenario_index, test_index, is_recurrent_test_data=True, x=x)
         test_df_list = list()
         for test_df in test_data:
             if target == 'T':
-                test = test_df[["flow-time", "Tw", "Ti", "Tavg", "Tx"]].to_numpy()
+                if x > 0:
+                    test = test_df[["flow-time", "Tw", "Ti", "Tx", "Tavg"]].to_numpy()
+                else:
+                    test = test_df[["flow-time", "Tw", "Ti", "Tavg"]].to_numpy()
             elif target == 'h':
-                test = test_df[["Time", "Tw", "Ti", "h", "Tx"]].to_numpy()
+                if x > 0:
+                    test = test_df[["flow-time", "Tw", "Ti", "Tx", "h"]].to_numpy()
+                else:
+                    test = test_df[["flow-time", "Tw", "Ti", "h"]].to_numpy()
             else:
                 print('Target must be T or h.\n')
                 return None
             test_shift = series_to_supervised(test)
             test_df_list.append(test_shift)
+        print(test_df_list)
         X_test = list()
         y_test = list()
         for test_shift in test_df_list:
-            X, Y = test_shift[:, 0:4], test_shift[:, -1].tolist()
+            # For testing, get only Tw, Ti, & Tx. Tavg_t-1 will be supplied by
+            # the previous prediction in walk-forward validation
+            X = test_shift[:, 1:4]
+            # Get T_avg_t for y
+            y = test_shift[:, -1].tolist()
             X_test.append(X)
-            y_test += Y
+            y_test += y
         X_test = np.array(X_test)
         y_test = np.array(y_test)
     else:
-        test_df = load_data_sulfur(scenario_index, test_index)
-        X_test = test_df[["flow-time", "Tw", "Ti", "Tx"]].to_numpy()
+        test_df = load_data_sulfur(scenario_index, test_index, x=x)
+        if x > 0:
+            X_test = test_df[["flow-time", "Tw", "Ti", "Tx"]].to_numpy()
+        else:
+            X_test = test_df[["flow-time", "Tw", "Ti"]].to_numpy()
         if target == 'T':
             y_test = test_df[["Tavg"]].to_numpy().reshape(-1,)
         elif target == 'h':
