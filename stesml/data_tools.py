@@ -4,8 +4,9 @@ import numpy as np
 
 from sklearn.model_selection import RepeatedKFold
 
-def get_train_and_test_index(scenario_index):
-    random_state = random.randrange(2652124)
+def get_train_and_test_index(scenario_index, random_state=-1):
+    if random_state == -1:
+        random_state = random.randrange(2652124)
     cv = RepeatedKFold(n_splits=5, n_repeats=1, random_state=random_state)
 
     train_index, test_index  = next(cv.split(scenario_index.index))

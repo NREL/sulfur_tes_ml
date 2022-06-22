@@ -49,7 +49,7 @@ def get_predictions(model, X_test, is_recurrent=False):
     
     return y_hat
 
-def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iterations=1, is_recurrent=False, verbose=0, target='Tavg', per_case=False, x=0):
+def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iterations=1, is_recurrent=False, verbose=0, target='Tavg', per_case=False, x=0, calc_T_from_h=False):
     
     rmse = 0
     r2 = 0
@@ -72,10 +72,10 @@ def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iter
 
         y_hat = get_predictions(model, X_test, is_recurrent)
         
-        if target == 'h':
+        if calc_T_from_h:
             test_df = load_data(scenario_index, test_index, x=x)
             test_df["h_hat"] = y_hat
-            rmse_T, r2_T = get_T_from_h_results(test_df, plot=True)
+            rmse_T, r2_T = get_T_from_h_results(test_df, plot=False)
             rmse_T_tot += rmse_T
             r2_T_tot += r2_T
             rmse_T_cur_avg = rmse_T_tot/count
@@ -89,7 +89,7 @@ def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iter
 
         if verbose >= 1:
             print('Estimators:',n_estimators,'Shuffle:',j,'RMSE:',rmse_cur_avg,'R2:',r2_cur_avg)
-            if target == 'h':
+            if calc_T_from_h:
                 print('RMSE_T:',rmse_T_cur_avg,'R2_T:',r2_T_cur_avg)
         if verbose >= 2:
             print('Predicted:',y_hat)
@@ -100,9 +100,9 @@ def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iter
     
     print('# of Estimators: {n_estimators}, RMSE = {rmse:.5f}, r2 = {r2:.5f}'.format(n_estimators=n_estimators, rmse=rmse, r2=r2))
     
-    if target == 'h':
-        rmse_T = rmse_cur_avg
-        r2_T = r2_cur_avg
+    if calc_T_from_h:
+        rmse_T = rmse_T_cur_avg
+        r2_T = r2_T_cur_avg
         print('RMSE_T:',rmse_T,'R2_T:',r2_T)
         
     return rmse, r2
@@ -116,7 +116,6 @@ def get_progress(model_type, scenario_index, min_estimators, max_estimators, ste
         
         rmse_history.append((n_estimators, rmse))
         r2_history.append((n_estimators, r2))
-        print('# of Estimators: {n_estmators}, RMSE = {rmse:.5f}, r2 = {r2:.5f}'.format(n_estimators=n_estimators, rmse=rmse, r2=r2))
         
     return rmse_history, r2_history
 
