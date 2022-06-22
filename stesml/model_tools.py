@@ -11,6 +11,8 @@ from stesml.data_tools import series_to_supervised
 from stesml.data_tools import get_train_data_sulfur
 from stesml.data_tools import get_test_data_sulfur
 
+from typing import Tuple
+
 def get_model(model_type="XGBoost", n_estimators=1000):
     if model_type == "XGBoost":
         model = XGBRegressor(n_estimators=n_estimators, colsample_bylevel=.75, n_jobs=6)
@@ -84,3 +86,20 @@ def get_progress(model_type, scenario_index, min_estimators, max_estimators, ste
         print('# of Estimators: {i}, RMSE = {rmse:.5f}, r2 = {r2:.5f}'.format(i=i, rmse=rmse, r2=r2))
         
     return rmse_history, r2_history
+
+def focal_obj(X_train):
+    def custom_obj(y: np.ndarray, y_hat: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        rows = y.shape[0]
+        zeros = np.zeros((rows), dtype=float)
+        ones = np.ones((rows), dtype=float)
+        grad = np.zeros((rows), dtype=float)
+        hess = np.zeros((rows), dtype=float)
+        Tw = X_train[:,1]
+        Ti = X_train[:,2]
+        # (y_hat - y)^2 + relu(Ti-y_hat) + relu(y_hat - Tw)
+        grad = 4*(y_hat - y) - 0*np.maximum((Ti - y_hat),zeros) + 0*np.maximum((y_hat - Tw),zeros)
+        hess = 4*ones + 0*np.maximum(np.sign(Ti - y_hat),zeros) + 0*np.maximum(np.sign(y_hat - Tw),zeros)
+        grad = grad.reshape((rows, 1))
+        hess = hess.reshape((rows, 1))
+        return grad, hess
+    return custom_obj
