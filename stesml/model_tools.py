@@ -6,10 +6,10 @@ from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
 
 from stesml.data_tools import get_train_and_test_index
-from stesml.data_tools import load_data_sulfur
+from stesml.data_tools import load_data
 from stesml.data_tools import series_to_supervised
-from stesml.data_tools import get_train_data_sulfur
-from stesml.data_tools import get_test_data_sulfur
+from stesml.data_tools import get_train_data
+from stesml.data_tools import get_test_data
 
 from typing import Tuple
 
@@ -45,7 +45,7 @@ def get_predictions(model, X_test, is_recurrent=False):
     
     return y_hat
 
-def get_progress(model_type, scenario_index, min_estimators, max_estimators, step_size, num_shuffle_iterations=1, is_recurrent=False, verbose=False, target='T', per_case=False, x=1):
+def get_progress(model_type, scenario_index, min_estimators, max_estimators, step_size, num_shuffle_iterations=1, is_recurrent=False, verbose=False, target='Tavg', per_case=False, x=1):
     model = get_model(model_type)
     if model_type == "RandomForest" and num_shuffle_iterations == 1:
         model.set_params(warm_start=True)
@@ -63,8 +63,8 @@ def get_progress(model_type, scenario_index, min_estimators, max_estimators, ste
             print(j)
             train_index, test_index = get_train_and_test_index(scenario_index)
 
-            X_train, y_train = get_train_data_sulfur(scenario_index, train_index, test_index, is_recurrent, target, per_case, x=x)
-            X_test, y_test = get_test_data_sulfur(scenario_index, test_index, is_recurrent, target, x=x)
+            X_train, y_train = get_train_data(scenario_index, train_index, test_index, is_recurrent, target, per_case, x=x)
+            X_test, y_test = get_test_data(scenario_index, test_index, is_recurrent, target, x=x)
             
             model.fit(X_train, y_train)
 
@@ -75,7 +75,6 @@ def get_progress(model_type, scenario_index, min_estimators, max_estimators, ste
                 print('Expected:',y_test)
 
             rmse += mean_squared_error(y_test, y_hat, squared=False)
-            
             r2 += r2_score(y_test,y_hat)
             
         rmse /= num_shuffle_iterations

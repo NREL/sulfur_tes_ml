@@ -25,7 +25,7 @@ def get_plot_data(y_hat, test_df, test_index, is_recurrent, target='Tavg'):
     
     return test_df
 
-def plot_test_results_sulfur(test_df, model_type, target='Tavg'):
+def plot_test_results(test_df, model_type, target='Tavg'):
     for idx, grp in test_df.groupby(["Tw", "Ti"]):
         ax = grp.plot(x="flow-time", y=target, c='DarkBlue', linewidth=2.5, label="Expected")
         if target == 'h':
@@ -36,7 +36,7 @@ def plot_test_results_sulfur(test_df, model_type, target='Tavg'):
         plt.title('Tw = {Tw}  Ti = {Ti}'.format(Tw=idx[0], Ti=idx[1]))
         plt.show()
 
-def plot_average_error_sulfur(test_df, target='Tavg'):
+def plot_average_error(test_df, target='Tavg'):
     ax = plt.figure(figsize=(10,5), dpi = 200).add_axes([0,0,1,1])
     
     count = 0
