@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from typing import Tuple
 
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
@@ -11,7 +13,9 @@ from stesml.data_tools import series_to_supervised
 from stesml.data_tools import get_train_data
 from stesml.data_tools import get_test_data
 
-from typing import Tuple
+from stesml.postprocessing_tools import get_T
+
+
 
 def get_model(model_type="XGBoost", n_estimators=1000):
     if model_type == "XGBoost":
@@ -45,46 +49,117 @@ def get_predictions(model, X_test, is_recurrent=False):
     
     return y_hat
 
-def get_progress(model_type, scenario_index, min_estimators, max_estimators, step_size, num_shuffle_iterations=1, is_recurrent=False, verbose=False, target='Tavg', per_case=False, x=1):
-    model = get_model(model_type)
-    if model_type == "RandomForest" and num_shuffle_iterations == 1:
-        model.set_params(warm_start=True)
+def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iterations=1, is_recurrent=False, verbose=0, target='Tavg', per_case=False, x=0):
     
+    rmse = 0
+    r2 = 0
+    rmse_T_tot = 0 # Only used if target is 'h'
+    r2_T_tot = 0 # Only used if target is 'h'
+    count = 0
+    
+    for j in range(n_shuffle_iterations):
+        count += 1
+        
+        model = get_model(model_type)
+        model.set_params(n_estimators=n_estimators)
+        
+        train_index, test_index = get_train_and_test_index(scenario_index)
+
+        X_train, y_train = get_train_data(scenario_index, train_index, test_index, is_recurrent, target, per_case, x=x)
+        X_test, y_test = get_test_data(scenario_index, test_index, is_recurrent, target, x=x)
+
+        model.fit(X_train, y_train)
+
+        y_hat = get_predictions(model, X_test, is_recurrent)
+        
+        if target == 'h':
+            test_df = load_data(scenario_index, test_index, x=x)
+            test_df["h_hat"] = y_hat
+            rmse_T, r2_T = get_T_from_h_results(test_df, plot=True)
+            rmse_T_tot += rmse_T
+            r2_T_tot += r2_T
+            rmse_T_cur_avg = rmse_T_tot/count
+            r2_T_cur_avg = r2_T_tot/count
+
+        rmse += mean_squared_error(y_test, y_hat, squared=False)
+        r2 += r2_score(y_test,y_hat)
+
+        rmse_cur_avg = rmse/count
+        r2_cur_avg = r2/count
+
+        if verbose >= 1:
+            print('Estimators:',n_estimators,'Shuffle:',j,'RMSE:',rmse_cur_avg,'R2:',r2_cur_avg)
+            if target == 'h':
+                print('RMSE_T:',rmse_T_cur_avg,'R2_T:',r2_T_cur_avg)
+        if verbose >= 2:
+            print('Predicted:',y_hat)
+            print('Expected:',y_test)
+    
+    rmse = rmse_cur_avg
+    r2 = r2_cur_avg
+    
+    print('# of Estimators: {n_estimators}, RMSE = {rmse:.5f}, r2 = {r2:.5f}'.format(n_estimators=n_estimators, rmse=rmse, r2=r2))
+    
+    if target == 'h':
+        rmse_T = rmse_cur_avg
+        r2_T = r2_cur_avg
+        print('RMSE_T:',rmse_T,'R2_T:',r2_T)
+        
+    return rmse, r2
+
+def get_progress(model_type, scenario_index, min_estimators, max_estimators, step_size, n_shuffle_iterations=1, is_recurrent=False, verbose=0, target='Tavg', per_case=False, x=0):
     rmse_history = list()
     r2_history = list()
-    num_iterations = 10
     
-    for i in range(min_estimators, max_estimators + 1, step_size):
-        model.set_params(n_estimators=i)
-        rmse = 0
-        r2 = 0
+    for n_estimators in range(min_estimators, max_estimators + 1, step_size):
+        rmse, r2 = get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iterations, is_recurrent, verbose, target, per_case, x) 
         
-        for j in range(num_shuffle_iterations):
-            print(j)
-            train_index, test_index = get_train_and_test_index(scenario_index)
-
-            X_train, y_train = get_train_data(scenario_index, train_index, test_index, is_recurrent, target, per_case, x=x)
-            X_test, y_test = get_test_data(scenario_index, test_index, is_recurrent, target, x=x)
-            
-            model.fit(X_train, y_train)
-
-            y_hat = get_predictions(model, X_test, is_recurrent)
-            
-            if verbose:
-                print('Predicted:',y_hat)
-                print('Expected:',y_test)
-
-            rmse += mean_squared_error(y_test, y_hat, squared=False)
-            r2 += r2_score(y_test,y_hat)
-            
-        rmse /= num_shuffle_iterations
-        r2 /= num_shuffle_iterations
-        
-        rmse_history.append((i, rmse))
-        r2_history.append((i, r2))
-        print('# of Estimators: {i}, RMSE = {rmse:.5f}, r2 = {r2:.5f}'.format(i=i, rmse=rmse, r2=r2))
+        rmse_history.append((n_estimators, rmse))
+        r2_history.append((n_estimators, r2))
+        print('# of Estimators: {n_estmators}, RMSE = {rmse:.5f}, r2 = {r2:.5f}'.format(n_estimators=n_estimators, rmse=rmse, r2=r2))
         
     return rmse_history, r2_history
+
+
+def get_T_from_h_results(test_df, plot=False):
+    T_hat = np.array([])
+    T_expected = np.array([])
+    for idx, grp in test_df.groupby(["Tw", "Ti"]):
+        T_hat_grp = np.array([])
+        Ti = grp["Ti"][0]
+        Tw = grp["Tw"][0]
+        T_hat_grp = np.append(T_hat_grp, Ti)
+        T_prev = Ti
+        for i, h in enumerate(grp["h_hat"]):
+            if i == len(grp["h_hat"]) - 1:
+                continue
+            if i < 1:
+                T = grp["Tavg"][i]
+                T_hat_grp = np.append(T_hat_grp, T)
+                T_prev = T
+                h_prev = h
+                continue
+            timestep = grp["flow-time"][i] - grp["flow-time"][i-1]
+            T = get_T(T_prev, h_prev, Tw, timestep)
+            T_hat_grp = np.append(T_hat_grp, T)
+            T_prev = T
+            h_prev = h
+        if plot:
+            # Plotting results
+            grp["T_hat"] = T_hat_grp
+            ax = grp.plot(x="flow-time", y='Tavg', c='DarkBlue', linewidth=2.5, label="Expected")
+            plot = grp.plot(x="flow-time", y='T_hat', c='DarkOrange', linewidth=2.5, label="Predicted", ax=ax)
+            plt.title('Tw = {Tw}  Ti = {Ti}'.format(Tw=idx[0], Ti=idx[1]))
+            plt.show()
+        T_hat = np.concatenate((T_hat, T_hat_grp))
+        T_expected = np.concatenate((T_expected, grp["Tavg"]))
+        
+    rmse = mean_squared_error(T_expected, T_hat, squared=False)
+    r2 = r2_score(T_expected, T_hat)
+    
+    return rmse, r2
+
+
 
 def focal_obj(X_train):
     def custom_obj(y: np.ndarray, y_hat: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
@@ -102,3 +177,4 @@ def focal_obj(X_train):
         hess = hess.reshape((rows, 1))
         return grad, hess
     return custom_obj
+

@@ -84,3 +84,12 @@ def get_h(df):
         h_i = (m * Cp * dT_dt) / (As * (Tw-T))
         h.append(h_i)
     return h
+
+def get_T(T_prev, h, Tw, timestep):
+    Ac = get_Ac()
+    m = get_m(T_prev, Ac)
+    Cp = get_Cp(T_prev)
+    As = get_As()
+    slope = ( h*As*(Tw - T_prev) )/( m*Cp )
+    T = slope*timestep + T_prev
+    return T
