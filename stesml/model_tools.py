@@ -15,6 +15,8 @@ from stesml.data_tools import get_test_data
 
 from stesml.postprocessing_tools import get_T
 
+from stesml.data_tools import get_train_and_test_index_short
+from stesml.data_tools import get_train_data_short
 
 
 def get_model(model_type="XGBoost", n_estimators=1000):
@@ -49,7 +51,7 @@ def get_predictions(model, X_test, is_recurrent=False):
     
     return y_hat
 
-def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iterations=1, is_recurrent=False, verbose=0, target='Tavg', per_case=False, x=0, calc_T_from_h=False):
+def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iterations=1, is_recurrent=False, verbose=0, target='Tavg', per_case=False, x=0, calc_T_from_h=False, short=False, t=100):
     
     rmse = 0
     r2 = 0
@@ -63,9 +65,13 @@ def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iter
         model = get_model(model_type)
         model.set_params(n_estimators=n_estimators)
         
-        train_index, test_index = get_train_and_test_index(scenario_index)
-
-        X_train, y_train = get_train_data(scenario_index, train_index, test_index, is_recurrent, target, per_case, x=x)
+        if short:
+            train_index, train_index_short, test_index = get_train_and_test_index_short(scenario_index)
+            X_train, y_train = get_train_data_short(scenario_index, train_index, train_index_short, target, t=t)
+        else:
+            train_index, test_index = get_train_and_test_index(scenario_index)
+            X_train, y_train = get_train_data(scenario_index, train_index, test_index, is_recurrent, target, per_case, x=x)
+            
         X_test, y_test = get_test_data(scenario_index, test_index, is_recurrent, target, x=x)
 
         model.fit(X_train, y_train)
