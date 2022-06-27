@@ -14,6 +14,7 @@ from stesml.data_tools import get_train_data
 from stesml.data_tools import get_test_data
 
 from stesml.postprocessing_tools import get_T
+from stesml.postprocessing_tools import get_h
 
 from stesml.data_tools import get_train_and_test_index_short
 from stesml.data_tools import get_train_data_short
@@ -161,6 +162,30 @@ def get_T_from_h_results(test_df, plot=False):
         
     rmse = mean_squared_error(T_expected, T_hat, squared=False)
     r2 = r2_score(T_expected, T_hat)
+    
+    return rmse, r2
+
+def get_h_from_T_results(test_df, plot=False):
+    h_hat = np.array([])
+    h_expected = np.array([])
+    for idx, grp in test_df.groupby(["Tw", "Ti"]):
+        h_hat_grp = get_h(grp)
+        if plot:
+            # Plotting results
+            grp["h_hat"] = h_hat_grp
+            ax = grp.plot(x="flow-time", y='h', c='DarkBlue', linewidth=2.5, label="Expected")
+            plot = grp.plot(x="flow-time", y='h_hat', c='DarkOrange', linewidth=2.5, label="Predicted", ax=ax)
+            #ax.set_xscale('log')
+            ax.set_yscale('log')
+            #plot.set_xscale('log')
+            plot.set_yscale('log')
+            plt.title('Tw = {Tw}  Ti = {Ti}'.format(Tw=idx[0], Ti=idx[1]))
+            plt.show()
+        h_hat = np.concatenate((h_hat, h_hat_grp))
+        h_expected = np.concatenate((h_expected, grp["h"]))
+        
+    rmse = mean_squared_error(h_expected, h_hat, squared=False)
+    r2 = r2_score(h_expected, h_hat)
     
     return rmse, r2
 

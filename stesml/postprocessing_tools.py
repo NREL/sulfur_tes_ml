@@ -50,7 +50,7 @@ def get_dT_dt(T_list, i, timestep):
     ######################
     T_prev = T_list[i - 1][0]
     T_next = T_list[i + 1][0]
-    dT_dt = (T_next - T_prev) / (2*timestep)
+    dT_dt = (T_next - T_prev) / timestep
     return dT_dt
 
 def get_h(df):
@@ -65,9 +65,9 @@ def get_h(df):
     # This formula assumes it is given a dataframe (df) from a single dataset
     # e.g. the data from a single test run with Tw = 550 and Ti = 440.
     
-    T_list = df[["Tavg"]].to_numpy()
+    T_list = df[["Tavg_hat"]].to_numpy()
     time = df[["flow-time"]].to_numpy()
-    timestep = time[1][0] - time[0][0]
+    #timestep = time[1][0] - time[0][0]
     Tw = df[["Tw"]].to_numpy()[0][0]
     As = get_As()
     Ac = get_Ac()
@@ -76,12 +76,16 @@ def get_h(df):
     for i, T in enumerate(T_list):
         T = T[0]
         # Cannot get centered diff derivative for T at first and last datapoints
-        if i == 0 or i == len(T_list) - 1: 
+        if i == 0 or i == len(T_list) - 1:
+            h.append(0)
             continue
+        timestep = time[i+1][0] - time[i-1][0]
         m = get_m(T, Ac)
         Cp = get_Cp(T)
         dT_dt = get_dT_dt(T_list, i, timestep)
         h_i = (m * Cp * dT_dt) / (As * (Tw-T))
+        if h_i < 0 or h_i > 100000 or math.isnan(h_i):
+            h_i = 0
         h.append(h_i)
     return h
 
