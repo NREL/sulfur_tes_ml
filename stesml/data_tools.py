@@ -20,7 +20,7 @@ def get_train_and_test_index_short(scenario_index, random_state=-1):
 
     train_index, test_index  = next(cv.split(scenario_index.index))
     
-    random_state = random.randrange(2652124)
+    #random_state = random.randrange(2652124)
     cv = RepeatedKFold(n_splits=2, n_repeats=1, random_state=random_state)
     train_sub_index = next(cv.split(pd.DataFrame(train_index).index))
     train_index_short = train_index[train_sub_index[0]]

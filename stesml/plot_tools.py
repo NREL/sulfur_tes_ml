@@ -63,6 +63,8 @@ def plot_average_error(test_df, target='Tavg'):
     plt.xlabel("Time (s)")
     
     plt.show()
+    
+    return avg_err
 
 def plot_progress_results(history, model_type, is_recurrent, metric):
     fig, ax = plt.subplots(figsize=(12,8), dpi= 200, facecolor='w', edgecolor='k')
