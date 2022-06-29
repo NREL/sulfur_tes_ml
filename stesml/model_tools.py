@@ -62,19 +62,12 @@ def get_model(model_type="XGBoost", n_layers=3, n_hidden_units=50, n_estimators=
 
 def fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs, trial=None):
     if model_type == "NN":
-        if trial is not None: # If the model is being trained & tested within Optuna optimizatiion study
-            history = model.fit(x=X_train, 
-                      y=y_train,
-                      batch_size=batch_size,
-                      epochs=epochs,
-                      validation_data=(X_test, y_test), 
-                      callbacks=[TFKerasPruningCallback(trial, 'val_loss'), earlystopping_callback])
-        else:
-            history = model.fit(x=X_train, 
-                      y=y_train,
-                      batch_size=batch_size,
-                      epochs=epochs,
-                      validation_data=(X_test, y_test))
+        history = model.fit(x=X_train, 
+                  y=y_train,
+                  batch_size=batch_size,
+                  epochs=epochs,
+                  validation_data=(X_test, y_test),
+                  callbacks=[earlystopping_callback])
     else:
         history = model.fit(X_train, y_train)
     return model, history
@@ -110,45 +103,47 @@ def apply_penalty(result, history, epochs, metric):
     return result
     
 
-def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, n_layers=3, n_hidden_units=50, batch_size=30, epochs=1, n_estimators=300, trial=None):
-    # Get a dataframe with the filepaths of each file in the data directory
-    scenario_index = get_scenario_index(data_dir)
-    
-    # Get the train and test index by randomly splitting up data (80-20 train-test split)
-    train_index, test_index = get_train_and_test_index(scenario_index)
-    
-    # Get train and test data
-    if scale:
-        X_train, y_train, X_test, y_test, scaler_x, scaler_y = get_train_and_test_data(scenario_index, train_index, test_index, target, scale)
-    else:
-        X_train, y_train, X_test, y_test = get_train_and_test_data(scenario_index, train_index, test_index, target)
-    
-    # Get the model
-    model = get_model(model_type, n_layers, n_hidden_units, n_estimators)
-    
-    # Fit the model to training data
-    model, history = fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs, trial)
+def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, n_layers=3, n_hidden_units=50, batch_size=30, epochs=1, n_estimators=300, trial=None, n_shuffles=1):
+    result_tot = 0
+    for i in range(n_shuffles):
+        # Get a dataframe with the filepaths of each file in the data directory
+        scenario_index = get_scenario_index(data_dir)
 
-    # Get predictions for test data
-    if scale:
-        y_hat, y_test = get_predictions(model, X_test, y_test, scale, scaler_y)
-    else:
-        y_hat = get_predictions(model, X_test)
+        # Get the train and test index by randomly splitting up data (80-20 train-test split)
+        train_index, test_index = get_train_and_test_index(scenario_index)
+
+        # Get train and test data
+        if scale:
+            X_train, y_train, X_test, y_test, scaler_x, scaler_y = get_train_and_test_data(scenario_index, train_index, test_index, target, scale)
+        else:
+            X_train, y_train, X_test, y_test = get_train_and_test_data(scenario_index, train_index, test_index, target)
+
+        # Get the model
+        model = get_model(model_type, n_layers, n_hidden_units, n_estimators)
+
+        # Fit the model to training data
+        model, history = fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs, trial)
+
+        # Get predictions for test data
+        if scale:
+            y_hat, y_test = get_predictions(model, X_test, y_test, scale, scaler_y)
+        else:
+            y_hat = get_predictions(model, X_test)
+
+        # Evaluate results
+        result = evaluate_results(metric, y_test, y_hat)
+
+        # Apply a penalty for early stopping
+        if model_type=='NN' and len(history.history['loss']) < epochs:
+            result = apply_penalty(result, history, epochs, metric)
         
-    # Evaluate results
-    result = evaluate_results(metric, y_test, y_hat)
+        print(f'Result: {result:.4f}')
+        result_tot += result
+        result_avg = result_tot/(i+1)
     
-    # Apply a penalty for early stopping
-    if model_type=='NN' and len(history.history['loss']) < epochs:
-        result = apply_penalty(result, history, epochs, metric)
+        print(f'Average Result: {result_avg:.4f}')
 
-    return result
-
-
-
-
-
-
+    return result_avg
 
 
 
