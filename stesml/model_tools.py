@@ -11,6 +11,7 @@ from tensorflow import keras
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 
+from stesml.data_tools import get_scenario_index
 from stesml.data_tools import get_train_and_test_index
 from stesml.data_tools import load_data
 from stesml.data_tools import get_train_data
@@ -22,6 +23,8 @@ from stesml.postprocessing_tools import get_h
 
 from stesml.data_tools import get_train_and_test_index_short
 from stesml.data_tools import get_train_data_short
+
+from optuna.integration import TFKerasPruningCallback
 
 def build_NN_model(n_layers=3, n_hidden_units=50):
     model = Sequential()
@@ -45,12 +48,21 @@ def get_model(model_type="XGBoost", n_layers=3, n_hidden_units=50, n_estimators=
         return None
     return model
 
-def fit_model(model, model_type, X_train, y_train, batch_size, epochs):
+def fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs, trial=None):
     if model_type == "NN":
-        model.fit(x=X_train, 
-          y=y_train,
-          batch_size=batch_size,
-          epochs=epochs)
+        if trial != None: # If the model is being trained & tested within Optuna optimizatiion study
+            model.fit(x=X_train, 
+                      y=y_train,
+                      batch_size=batch_size,
+                      epochs=epochs,
+                      validation_data=(X_test, y_test), 
+                      callbacks=[TFKerasPruningCallback(trial, 'val_loss')])
+        else:
+            model.fit(x=X_train, 
+                      y=y_train,
+                      batch_size=batch_size,
+                      epochs=epochs,
+                      validation_data=(X_test, y_test))
     else:
         model.fit(X_train, y_train)
     return model
@@ -64,7 +76,10 @@ def get_predictions(model, X_test, y_test=None, scale=False, scaler_y=None):
     else:
         return y_hat
 
-def build_train_test_model(scenario_index=None, model_type='NN', target='Tavg', scale=True, n_layers=3, n_hidden_units=50, batch_size=30, epochs=1, n_estimators=300):
+def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', scale=True, n_layers=3, n_hidden_units=50, batch_size=30, epochs=1, n_estimators=300, trial=None):
+    # Get a dataframe with the filepaths of each file in the data directory
+    scenario_index = get_scenario_index(data_dir)
+    
     # Get the train and test index by randomly splitting up data (80-20 train-test split)
     train_index, test_index = get_train_and_test_index(scenario_index)
     
@@ -78,7 +93,7 @@ def build_train_test_model(scenario_index=None, model_type='NN', target='Tavg', 
     model = get_model(model_type, n_layers, n_hidden_units, n_estimators)
     
     # Fit the model to training data
-    model = fit_model(model, model_type, X_train, y_train, batch_size, epochs)
+    model = fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs, trial)
 
     # Get predictions for test data
     if scale:

@@ -1,10 +1,16 @@
 import random
 import pandas as pd
 import numpy as np
+import glob
+import os
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import RepeatedKFold
 
+def get_scenario_index(data_dir):
+    scenario_index = pd.DataFrame({"filepath": glob.glob(os.path.join(data_dir, "ML_*_*.csv"))})
+    return scenario_index
+    
 def get_train_and_test_index(scenario_index, random_state=-1):
     if random_state == -1:
         random_state = random.randrange(2652124)
