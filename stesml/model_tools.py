@@ -60,7 +60,7 @@ def get_model(model_type="XGBoost", n_layers=3, n_hidden_units=50, n_estimators=
         return None
     return model
 
-def fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs, trial=None):
+def fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs):
     if model_type == "NN":
         history = model.fit(x=X_train, 
                   y=y_train,
@@ -103,7 +103,7 @@ def apply_penalty(result, history, epochs, metric):
     return result
     
 
-def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, n_layers=3, n_hidden_units=50, batch_size=30, epochs=1, n_estimators=300, trial=None, n_shuffles=1):
+def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, n_layers=3, n_hidden_units=50, batch_size=30, epochs=1, n_estimators=300, n_shuffles=1):
     result_tot = 0
     for i in range(n_shuffles):
         # Get a dataframe with the filepaths of each file in the data directory
@@ -122,7 +122,7 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric
         model = get_model(model_type, n_layers, n_hidden_units, n_estimators)
 
         # Fit the model to training data
-        model, history = fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs, trial)
+        model, history = fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs)
 
         # Get predictions for test data
         if scale:
