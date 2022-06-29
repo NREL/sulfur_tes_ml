@@ -26,6 +26,18 @@ from stesml.data_tools import get_train_data_short
 
 from optuna.integration import TFKerasPruningCallback
 
+from tensorflow.keras.callbacks import EarlyStopping
+
+earlystopping_callback = EarlyStopping(
+    monitor="val_loss",
+    min_delta=0,
+    patience=0,
+    verbose=0,
+    mode="auto",
+    baseline=None,
+    restore_best_weights=True,
+)
+
 def build_NN_model(n_layers=3, n_hidden_units=50):
     model = Sequential()
     model.add(Dense(n_hidden_units, activation='relu', input_shape=(3,)))
@@ -38,9 +50,9 @@ def build_NN_model(n_layers=3, n_hidden_units=50):
 
 def get_model(model_type="XGBoost", n_layers=3, n_hidden_units=50, n_estimators=1000):
     if model_type == "XGBoost":
-        model = XGBRegressor(n_estimators=n_estimators, colsample_bylevel=.75, n_jobs=6)
+        model = XGBRegressor(n_estimators=n_estimators, colsample_bylevel=.75, n_jobs=-1)
     elif model_type == "RandomForest":
-        model = RandomForestRegressor(n_estimators=n_estimators, n_jobs=-1, random_state=30)
+        model = RandomForestRegressor(n_estimators=n_estimators, n_jobs=-1)
     elif model_type == "NN":
         model = build_NN_model(n_layers, n_hidden_units)
     else:
@@ -50,22 +62,22 @@ def get_model(model_type="XGBoost", n_layers=3, n_hidden_units=50, n_estimators=
 
 def fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs, trial=None):
     if model_type == "NN":
-        if trial != None: # If the model is being trained & tested within Optuna optimizatiion study
-            model.fit(x=X_train, 
+        if trial is not None: # If the model is being trained & tested within Optuna optimizatiion study
+            history = model.fit(x=X_train, 
                       y=y_train,
                       batch_size=batch_size,
                       epochs=epochs,
                       validation_data=(X_test, y_test), 
-                      callbacks=[TFKerasPruningCallback(trial, 'val_loss')])
+                      callbacks=[TFKerasPruningCallback(trial, 'val_loss'), earlystopping_callback])
         else:
-            model.fit(x=X_train, 
+            history = model.fit(x=X_train, 
                       y=y_train,
                       batch_size=batch_size,
                       epochs=epochs,
                       validation_data=(X_test, y_test))
     else:
-        model.fit(X_train, y_train)
-    return model
+        history = model.fit(X_train, y_train)
+    return model, history
     
 def get_predictions(model, X_test, y_test=None, scale=False, scaler_y=None):
     y_hat = model.predict(X_test)
@@ -76,7 +88,29 @@ def get_predictions(model, X_test, y_test=None, scale=False, scaler_y=None):
     else:
         return y_hat
 
-def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', scale=True, n_layers=3, n_hidden_units=50, batch_size=30, epochs=1, n_estimators=300, trial=None):
+def evaluate_results(metric, y_test, y_hat):
+    if metric == 'rmse':
+        result = mean_squared_error(y_test, y_hat, squared=False)
+    elif metric == 'r2':
+        result = r2_score(y_test, y_hat)
+    else:
+        print('Metric must either be rmse or r2')
+        return None
+    return result
+
+def apply_penalty(result, history, epochs, metric):
+    diff = epochs - len(history.history['loss'])
+    penalty = .01 * diff + 1
+    print(f'Stopped {diff} epochs early. Applying penalty of {penalty}. Old result = {result}')
+    if metric == 'rmse':
+        result *= penalty
+    elif metric == 'r2':
+        result /= penalty
+    print(f'New result = {result}')
+    return result
+    
+
+def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, n_layers=3, n_hidden_units=50, batch_size=30, epochs=1, n_estimators=300, trial=None):
     # Get a dataframe with the filepaths of each file in the data directory
     scenario_index = get_scenario_index(data_dir)
     
@@ -93,7 +127,7 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', scale=
     model = get_model(model_type, n_layers, n_hidden_units, n_estimators)
     
     # Fit the model to training data
-    model = fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs, trial)
+    model, history = fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs, trial)
 
     # Get predictions for test data
     if scale:
@@ -102,9 +136,13 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', scale=
         y_hat = get_predictions(model, X_test)
         
     # Evaluate results
-    rmse = mean_squared_error(y_test, y_hat, squared=False)
+    result = evaluate_results(metric, y_test, y_hat)
     
-    return rmse
+    # Apply a penalty for early stopping
+    if model_type=='NN' and len(history.history['loss']) < epochs:
+        result = apply_penalty(result, history, epochs, metric)
+
+    return result
 
 
 
@@ -253,6 +291,16 @@ def get_h_from_T_results(test_df, plot=False):
     r2 = r2_score(h_expected, h_hat)
     
     return rmse, r2
+
+
+
+
+
+
+
+
+
+
 
 def focal_obj(X_train):
     def custom_obj(y: np.ndarray, y_hat: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
