@@ -7,15 +7,11 @@ from xgboost import XGBRegressor
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
 
-from tensorflow import keras
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
-
 from stesml.data_tools import get_train_and_test_index
 from stesml.data_tools import load_data
+from stesml.data_tools import series_to_supervised
 from stesml.data_tools import get_train_data
 from stesml.data_tools import get_test_data
-from stesml.data_tools import get_train_and_test_data
 
 from stesml.postprocessing_tools import get_T
 from stesml.postprocessing_tools import get_h
@@ -23,100 +19,49 @@ from stesml.postprocessing_tools import get_h
 from stesml.data_tools import get_train_and_test_index_short
 from stesml.data_tools import get_train_data_short
 
-def build_NN_model(n_layers=3, n_hidden_units=50):
-    model = Sequential()
-    model.add(Dense(n_hidden_units, activation='relu', input_shape=(3,)))
-    for i in range(n_layers-1):
-        model.add(Dense(n_hidden_units, activation='relu'))
-    model.add(Dense(1))
-    model.compile(optimizer='adam', loss='mse')
-    model.build()
-    return model
 
-def get_model(model_type="XGBoost", n_layers=3, n_hidden_units=50, n_estimators=1000):
+def get_model(model_type="XGBoost", n_estimators=1000):
     if model_type == "XGBoost":
         model = XGBRegressor(n_estimators=n_estimators, colsample_bylevel=.75, n_jobs=6)
     elif model_type == "RandomForest":
         model = RandomForestRegressor(n_estimators=n_estimators, n_jobs=-1, random_state=30)
-    elif model_type == "NN":
-        model = build_NN_model(n_layers, n_hidden_units)
     else:
-        print("Please choose either XGBoost, RandomForest, or NN for model type")
+        print("Please choose either XGBoost or RandomForest for model type")
         return None
     return model
 
-def fit_model(model, model_type, X_train, y_train, batch_size, epochs):
-    if model_type == "NN":
-        model.fit(x=X_train, 
-          y=y_train,
-          batch_size=batch_size,
-          epochs=epochs)
+def walk_forward_validation(X_test_sample, model):
+    predictions = list()
+    Tc = X_test_sample[0][2]
+    for time_step in X_test_sample:
+        time_step = np.append(time_step,Tc)
+        Tc = model.predict(time_step.reshape(1, -1))
+        predictions.append(Tc.tolist()[0])
+    #predictions.append(predictions[-1])
+    return predictions
+
+def get_predictions(model, X_test, is_recurrent=False):
+    if is_recurrent:
+        y_hat = list()
+        for X_test_sample in X_test:
+            y_hat_sample = walk_forward_validation(X_test_sample, model)
+            y_hat += y_hat_sample
+        y_hat = np.array(y_hat)
     else:
-        model.fit(X_train, y_train)
-    return model
+        y_hat = model.predict(X_test)
     
-def get_predictions(model, X_test, y_test=None, scale=False, scaler_y=None):
-    y_hat = model.predict(X_test)
-    if scale:
-        y_hat = scaler_y.inverse_transform(y_hat.reshape(-1,1)).reshape(1,-1)[0]
-        y_test = scaler_y.inverse_transform(y_test.reshape(-1,1)).reshape(1,-1)[0]
-        return y_hat, y_test
-    else:
-        return y_hat
+    return y_hat
 
-def build_train_test_model(scenario_index=None, model_type='NN', target='Tavg', scale=True, n_layers=3, n_hidden_units=50, batch_size=30, epochs=1, n_estimators=300):
-    # Get the train and test index by randomly splitting up data (80-20 train-test split)
-    train_index, test_index = get_train_and_test_index(scenario_index)
-    
-    # Get train and test data
-    if scale:
-        X_train, y_train, X_test, y_test, scaler_x, scaler_y = get_train_and_test_data(scenario_index, train_index, test_index, target, scale)
-    else:
-        X_train, y_train, X_test, y_test = get_train_and_test_data(scenario_index, train_index, test_index, target)
-    
-    # Get the model
-    model = get_model(model_type, n_layers, n_hidden_units, n_estimators)
-    
-    # Fit the model to training data
-    model = fit_model(model, model_type, X_train, y_train, batch_size, epochs)
-
-    # Get predictions for test data
-    if scale:
-        y_hat, y_test = get_predictions(model, X_test, y_test, scale, scaler_y)
-    else:
-        y_hat = get_predictions(model, X_test)
-        
-    # Evaluate results
-    rmse = mean_squared_error(y_test, y_hat, squared=False)
-    
-    return rmse
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iterations=1, verbose=0, target='Tavg', calc_T_from_h=False, short=False, t=100):
+def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iterations=1, is_recurrent=False, verbose=0, target='Tavg', per_case=False, x=0, calc_T_from_h=False, short=False, t=100):
     
     rmse = 0
     r2 = 0
     rmse_T_tot = 0 # Only used if target is 'h'
     r2_T_tot = 0 # Only used if target is 'h'
+    count = 0
     
     for j in range(n_shuffle_iterations):
+        count += 1
         
         model = get_model(model_type)
         model.set_params(n_estimators=n_estimators)
@@ -126,13 +71,13 @@ def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iter
             X_train, y_train = get_train_data_short(scenario_index, train_index, train_index_short, target, t=t)
         else:
             train_index, test_index = get_train_and_test_index(scenario_index)
-            X_train, y_train = get_train_data(scenario_index, train_index, target)
+            X_train, y_train = get_train_data(scenario_index, train_index, test_index, is_recurrent, target, per_case, x=x)
             
-        X_test, y_test = get_test_data(scenario_index, test_index, target)
+        X_test, y_test = get_test_data(scenario_index, test_index, is_recurrent, target, x=x)
 
         model.fit(X_train, y_train)
 
-        y_hat = get_predictions(model, X_test)
+        y_hat = get_predictions(model, X_test, is_recurrent)
         
         if calc_T_from_h:
             test_df = load_data(scenario_index, test_index, x=x)
@@ -140,12 +85,14 @@ def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iter
             rmse_T, r2_T = get_T_from_h_results(test_df, plot=False)
             rmse_T_tot += rmse_T
             r2_T_tot += r2_T
-            rmse_T_cur_avg = rmse_T_tot/(j + 1)
-            r2_T_cur_avg = r2_T_tot/(j + 1)
+            rmse_T_cur_avg = rmse_T_tot/count
+            r2_T_cur_avg = r2_T_tot/count
+
         rmse += mean_squared_error(y_test, y_hat, squared=False)
         r2 += r2_score(y_test,y_hat)
-        rmse_cur_avg = rmse/(j + 1)
-        r2_cur_avg = r2/(j + 1)
+
+        rmse_cur_avg = rmse/count
+        r2_cur_avg = r2/count
 
         if verbose >= 1:
             print('Estimators:',n_estimators,'Shuffle:',j,'RMSE:',rmse_cur_avg,'R2:',r2_cur_avg)
@@ -167,13 +114,16 @@ def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iter
         
     return rmse, r2
 
-def get_progress(model_type, scenario_index, min_estimators, max_estimators, step_size, n_shuffle_iterations=1, verbose=0, target='Tavg'):
+def get_progress(model_type, scenario_index, min_estimators, max_estimators, step_size, n_shuffle_iterations=1, is_recurrent=False, verbose=0, target='Tavg', per_case=False, x=0):
     rmse_history = list()
     r2_history = list()
+    
     for n_estimators in range(min_estimators, max_estimators + 1, step_size):
-        rmse, r2 = get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iterations, verbose, target) 
+        rmse, r2 = get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iterations, is_recurrent, verbose, target, per_case, x) 
+        
         rmse_history.append((n_estimators, rmse))
         r2_history.append((n_estimators, r2))
+        
     return rmse_history, r2_history
 
 
@@ -238,6 +188,8 @@ def get_h_from_T_results(test_df, plot=False):
     r2 = r2_score(h_expected, h_hat)
     
     return rmse, r2
+
+
 
 def focal_obj(X_train):
     def custom_obj(y: np.ndarray, y_hat: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
