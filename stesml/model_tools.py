@@ -31,7 +31,7 @@ from tensorflow.keras.callbacks import EarlyStopping
 earlystopping_callback = EarlyStopping(
     monitor="val_loss",
     min_delta=0,
-    patience=0,
+    patience=2,
     verbose=0,
     mode="auto",
     baseline=None,
@@ -62,15 +62,15 @@ def get_model(model_type="XGBoost", n_layers=3, n_hidden_units=50, n_estimators=
 
 def fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs):
     if model_type == "NN":
-        history = model.fit(x=X_train, 
+        model.fit(x=X_train, 
                   y=y_train,
                   batch_size=batch_size,
                   epochs=epochs,
                   validation_data=(X_test, y_test),
                   callbacks=[earlystopping_callback])
     else:
-        history = model.fit(X_train, y_train)
-    return model, history
+        model.fit(X_train, y_train)
+    return model
     
 def get_predictions(model, X_test, y_test=None, scale=False, scaler_y=None):
     y_hat = model.predict(X_test)
@@ -90,19 +90,7 @@ def evaluate_results(metric, y_test, y_hat):
         print('Metric must either be rmse or r2')
         return None
     return result
-
-def apply_penalty(result, history, epochs, metric):
-    diff = epochs - len(history.history['loss'])
-    penalty = .01 * diff + 1
-    print(f'Stopped {diff} epochs early. Applying penalty of {penalty}. Old result = {result}')
-    if metric == 'rmse':
-        result *= penalty
-    elif metric == 'r2':
-        result /= penalty
-    print(f'New result = {result}')
-    return result
     
-
 def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, n_layers=3, n_hidden_units=50, batch_size=30, epochs=1, n_estimators=300, n_shuffles=1):
     result_tot = 0
     for i in range(n_shuffles):
@@ -122,7 +110,7 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric
         model = get_model(model_type, n_layers, n_hidden_units, n_estimators)
 
         # Fit the model to training data
-        model, history = fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs)
+        model = fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs)
 
         # Get predictions for test data
         if scale:
@@ -132,10 +120,6 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric
 
         # Evaluate results
         result = evaluate_results(metric, y_test, y_hat)
-
-        # Apply a penalty for early stopping
-        if model_type=='NN' and len(history.history['loss']) < epochs:
-            result = apply_penalty(result, history, epochs, metric)
         
         print(f'Result: {result:.4f}')
         result_tot += result
