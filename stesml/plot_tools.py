@@ -42,7 +42,7 @@ def plot_average_error(test_df, target='Tavg'):
     count = 0
     for idx, grp in test_df.groupby(["Tw", "Ti"]):
         grp = grp.head(72000) # Trim dataset so all groups have same length
-        ax.plot(grp['flow-time'], grp[target+'_hat'] - grp[target], color='black', linewidth=1, alpha=0.5)
+        ax.plot(grp['flow-time'], abs(grp[target+'_hat'] - grp[target]), color='black', linewidth=1, alpha=0.5)
         if count == 0:
             avg_err = abs(grp[target+'_hat'] - grp[target])
         else:
@@ -54,7 +54,7 @@ def plot_average_error(test_df, target='Tavg'):
     ax.plot(grp['flow-time'], avg_err, color='r', linewidth=5)
     if target == 'h':
         ax.set_xlim(1)
-        ax.set_ylim(-10,10)
+        ax.set_ylim(0,10)
         plt.ylabel("Heat Transfer Coefficient (W/((m^2)K)")
     else:
         ax.set_xlim(left=0)

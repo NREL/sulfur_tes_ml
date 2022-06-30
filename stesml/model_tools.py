@@ -48,20 +48,26 @@ def build_NN_model(n_layers=3, n_hidden_units=50):
     model.build()
     return model
 
-def get_model(model_type="XGBoost", n_layers=3, n_hidden_units=50, n_estimators=1000):
+def get_model(model_type, parameters):
     if model_type == "XGBoost":
+        n_estimators = parameters['n_estimators']
         model = XGBRegressor(n_estimators=n_estimators, colsample_bylevel=.75, n_jobs=-1)
     elif model_type == "RandomForest":
+        n_estimators = parameters['n_estimators']
         model = RandomForestRegressor(n_estimators=n_estimators, n_jobs=-1)
     elif model_type == "NN":
+        n_layers = parameters['n_layers']
+        n_hidden_units = parameters['n_hidden_units']
         model = build_NN_model(n_layers, n_hidden_units)
     else:
         print("Please choose either XGBoost, RandomForest, or NN for model type")
         return None
     return model
 
-def fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs):
+def fit_model(model, model_type, X_train, y_train, X_test, y_test, parameters):
     if model_type == "NN":
+        batch_size = parameters['batch_size']
+        epochs = parameters['epochs']
         model.fit(x=X_train, 
                   y=y_train,
                   batch_size=batch_size,
@@ -91,8 +97,9 @@ def evaluate_results(metric, y_test, y_hat):
         return None
     return result
     
-def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, n_layers=3, n_hidden_units=50, batch_size=30, epochs=1, n_estimators=300, n_shuffles=1):
+def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, parameters=None, n_shuffles=1):
     result_tot = 0
+    addendum = list()
     for i in range(n_shuffles):
         # Get a dataframe with the filepaths of each file in the data directory
         scenario_index = get_scenario_index(data_dir)
@@ -107,10 +114,10 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric
             X_train, y_train, X_test, y_test = get_train_and_test_data(scenario_index, train_index, test_index, target)
 
         # Get the model
-        model = get_model(model_type, n_layers, n_hidden_units, n_estimators)
+        model = get_model(model_type, parameters)
 
         # Fit the model to training data
-        model = fit_model(model, model_type, X_train, y_train, X_test, y_test, batch_size, epochs)
+        model = fit_model(model, model_type, X_train, y_train, X_test, y_test, parameters)
 
         # Get predictions for test data
         if scale:
@@ -120,14 +127,14 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric
 
         # Evaluate results
         result = evaluate_results(metric, y_test, y_hat)
-        
-        print(f'Result: {result:.4f}')
         result_tot += result
         result_avg = result_tot/(i+1)
-    
-        print(f'Average Result: {result_avg:.4f}')
+        print(f'Shuffle #{i}, This Result: {result:.4f}, Average Result: {result_avg:.4f}')
+        
+        # Provide addendum for the last trained model
+        addendum.append([y_test, y_hat, scenario_index, train_index, test_index, result])
 
-    return result_avg
+    return result_avg, addendum
 
 
 
