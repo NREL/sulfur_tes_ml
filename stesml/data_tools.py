@@ -10,15 +10,12 @@ from sklearn.model_selection import RepeatedKFold
 def get_scenario_index(data_dir):
     scenario_index = pd.DataFrame({"filepath": glob.glob(os.path.join(data_dir, "ML_*_*.csv"))})
     return scenario_index
-    
-def get_train_and_test_index(scenario_index, random_state=-1):
+
+def get_cv(scenario_index, random_state=-1):
     if random_state == -1:
         random_state = random.randrange(2652124)
     cv = RepeatedKFold(n_splits=5, n_repeats=1, random_state=random_state)
-
-    train_index, test_index  = next(cv.split(scenario_index.index))
-    
-    return train_index, test_index
+    return cv
 
 def load_data(scenario_index, selected_index):
     """ Load data from files in scenario_index with indices matching ones in selected_index"""
@@ -111,3 +108,17 @@ def get_train_data_short(scenario_index, train_index, train_index_short, target=
     y_train_short = train_df_short[[target]]
     y_train = pd.concat((y_train, y_train_short)).to_numpy().reshape(-1,)
     return X_train, y_train
+
+
+
+
+
+
+def get_train_and_test_index(scenario_index, random_state=-1):
+    if random_state == -1:
+        random_state = random.randrange(2652124)
+    cv = RepeatedKFold(n_splits=5, n_repeats=1, random_state=random_state)
+
+    train_index, test_index  = next(cv.split(scenario_index.index))
+    
+    return train_index, test_index

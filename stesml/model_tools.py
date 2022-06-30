@@ -12,7 +12,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 
 from stesml.data_tools import get_scenario_index
-from stesml.data_tools import get_train_and_test_index
+from stesml.data_tools import get_cv
 from stesml.data_tools import load_data
 from stesml.data_tools import get_train_data
 from stesml.data_tools import get_test_data
@@ -97,15 +97,18 @@ def evaluate_results(metric, y_test, y_hat):
         return None
     return result
     
-def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, parameters=None, n_shuffles=1):
+def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, parameters=None):
     result_tot = 0
     addendum = list()
-    for i in range(n_shuffles):
-        # Get a dataframe with the filepaths of each file in the data directory
-        scenario_index = get_scenario_index(data_dir)
+    
+    # Get a dataframe with the filepaths of each file in the data directory
+    scenario_index = get_scenario_index(data_dir)
 
-        # Get the train and test index by randomly splitting up data (80-20 train-test split)
-        train_index, test_index = get_train_and_test_index(scenario_index)
+    # Split data into train and test sets for cross-validation (80-20 train-test split)
+    cv = get_cv(scenario_index, random_state=5)
+    
+    # Loop through the splits in cv
+    for i, (train_index, test_index) in enumerate(cv.split(scenario_index.index)):
 
         # Get train and test data
         if scale:
@@ -129,7 +132,7 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric
         result = evaluate_results(metric, y_test, y_hat)
         result_tot += result
         result_avg = result_tot/(i+1)
-        print(f'Shuffle #{i}, This Result: {result:.4f}, Average Result: {result_avg:.4f}')
+        print(f'Split #{i}, This Result: {result:.4f}, Average Result: {result_avg:.4f}')
         
         # Provide addendum for the last trained model
         addendum.append([y_test, y_hat, scenario_index, train_index, test_index, result])
