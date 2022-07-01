@@ -51,11 +51,6 @@ def build_NN_model(n_layers=3, n_hidden_units=50):
 
 def get_model(model_type, parameters):
     if model_type == "XGBoost":
-        #n_estimators = parameters['n_estimators']
-        #learning_rate = parameters['learning_rate']
-        #subsample = parameters['subsample']
-        # colsample_bylevel=.75
-        #model = XGBRegressor(n_estimators=n_estimators, learning_rate=learning_rate, subsample=subsample, n_jobs=-1)
         # No need to return model for XGBoost
         # Model is instantiated and trained via xgboost.train in the fit_model method below
         model = None
@@ -74,27 +69,26 @@ def get_model(model_type, parameters):
 def fit_model(model, model_type, X_train, y_train, X_test, y_test, parameters):
     if model_type == "NN":
         batch_size = parameters['batch_size']
-        epochs = parameters['epochs']
         model.fit(x=X_train, 
                   y=y_train,
                   batch_size=batch_size,
-                  epochs=epochs,
+                  epochs=100, # If training ever reaches 100 epochs without early stopping, this should be increased
                   validation_data=(X_test, y_test),
                   callbacks=[earlystopping_callback])
     elif model_type == "XGBoost":
-        params = {'eval_metric': 'rmse', 'learning_rate': parameters['learning_rate'], 'subsample': parameters['subsample']}
+        parameters['eval_metric'] = 'rmse'
         dtrain = xgb.DMatrix(data=X_train,
                              label=y_train)
         dtest = xgb.DMatrix(data=X_test,
                              label=y_test)
-        model = xgb.train(params=params,
+        model = xgb.train(params=parameters,
                         dtrain=dtrain,
-                        num_boost_round = parameters['num_boost_round'],
+                        num_boost_round = 10000, # If training ever reaches 10000 rounds without early stopping, this should be increased
                         early_stopping_rounds=20,
                         evals=[(dtest,'test')],
                         verbose_eval=20)
-        #model.set_params(eval_metric='rmse')
-        #model.fit(X_train, y_train, eval_set=[(X_test, y_test)], early_stopping_rounds=20, verbose_eval=20)
+    elif model_type == "RandomForest":
+        model.fit(X_train, y_train)
     return model
     
 def get_predictions(model, X_test, y_test=None, scale=False, scaler_y=None, model_type='NN'):
