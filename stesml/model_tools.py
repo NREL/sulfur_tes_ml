@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from typing import Tuple
 
+import xgboost as xgb
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
 from sklearn.metrics import r2_score
@@ -50,8 +51,14 @@ def build_NN_model(n_layers=3, n_hidden_units=50):
 
 def get_model(model_type, parameters):
     if model_type == "XGBoost":
-        n_estimators = parameters['n_estimators']
-        model = XGBRegressor(n_estimators=n_estimators, colsample_bylevel=.75, n_jobs=-1)
+        #n_estimators = parameters['n_estimators']
+        #learning_rate = parameters['learning_rate']
+        #subsample = parameters['subsample']
+        # colsample_bylevel=.75
+        #model = XGBRegressor(n_estimators=n_estimators, learning_rate=learning_rate, subsample=subsample, n_jobs=-1)
+        # No need to return model for XGBoost
+        # Model is instantiated and trained via xgboost.train in the fit_model method below
+        model = None
     elif model_type == "RandomForest":
         n_estimators = parameters['n_estimators']
         model = RandomForestRegressor(n_estimators=n_estimators, n_jobs=-1)
@@ -74,11 +81,25 @@ def fit_model(model, model_type, X_train, y_train, X_test, y_test, parameters):
                   epochs=epochs,
                   validation_data=(X_test, y_test),
                   callbacks=[earlystopping_callback])
-    else:
-        model.fit(X_train, y_train)
+    elif model_type == "XGBoost":
+        params = {'eval_metric': 'rmse', 'learning_rate': parameters['learning_rate'], 'subsample': parameters['subsample']}
+        dtrain = xgb.DMatrix(data=X_train,
+                             label=y_train)
+        dtest = xgb.DMatrix(data=X_test,
+                             label=y_test)
+        model = xgb.train(params=params,
+                        dtrain=dtrain,
+                        num_boost_round = parameters['num_boost_round'],
+                        early_stopping_rounds=20,
+                        evals=[(dtest,'test')],
+                        verbose_eval=20)
+        #model.set_params(eval_metric='rmse')
+        #model.fit(X_train, y_train, eval_set=[(X_test, y_test)], early_stopping_rounds=20, verbose_eval=20)
     return model
     
-def get_predictions(model, X_test, y_test=None, scale=False, scaler_y=None):
+def get_predictions(model, X_test, y_test=None, scale=False, scaler_y=None, model_type='NN'):
+    if model_type == 'XGBoost':
+        X_test = xgb.DMatrix(data=X_test)
     y_hat = model.predict(X_test)
     if scale:
         y_hat = scaler_y.inverse_transform(y_hat.reshape(-1,1)).reshape(1,-1)[0]
@@ -124,9 +145,9 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric
 
         # Get predictions for test data
         if scale:
-            y_hat, y_test = get_predictions(model, X_test, y_test, scale, scaler_y)
+            y_hat, y_test = get_predictions(model, X_test, y_test, scale, scaler_y, model_type)
         else:
-            y_hat = get_predictions(model, X_test)
+            y_hat = get_predictions(model, X_test, model_type=model_type)
 
         # Evaluate results
         result = evaluate_results(metric, y_test, y_hat)
