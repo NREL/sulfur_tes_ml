@@ -97,7 +97,7 @@ def evaluate_results(metric, y_test, y_hat):
         return None
     return result
     
-def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, parameters=None):
+def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, parameters=None, n_repeats=1, random_state=5):
     result_tot = 0
     addendum = list()
     
@@ -105,7 +105,7 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric
     scenario_index = get_scenario_index(data_dir)
 
     # Split data into train and test sets for cross-validation (80-20 train-test split)
-    cv = get_cv(scenario_index, random_state=5)
+    cv = get_cv(scenario_index, n_repeats, random_state)
     
     # Loop through the splits in cv
     for i, (train_index, test_index) in enumerate(cv.split(scenario_index.index)):

@@ -11,10 +11,10 @@ def get_scenario_index(data_dir):
     scenario_index = pd.DataFrame({"filepath": glob.glob(os.path.join(data_dir, "ML_*_*.csv"))})
     return scenario_index
 
-def get_cv(scenario_index, random_state=-1):
+def get_cv(scenario_index, n_repeats=1, random_state=-1):
     if random_state == -1:
         random_state = random.randrange(2652124)
-    cv = RepeatedKFold(n_splits=5, n_repeats=1, random_state=random_state)
+    cv = RepeatedKFold(n_splits=5, n_repeats=n_repeats, random_state=random_state)
     return cv
 
 def load_data(scenario_index, selected_index):
