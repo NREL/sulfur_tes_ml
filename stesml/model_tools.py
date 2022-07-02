@@ -29,6 +29,8 @@ from optuna.integration import TFKerasPruningCallback
 
 from tensorflow.keras.callbacks import EarlyStopping
 
+from sklearn.preprocessing import StandardScaler
+
 earlystopping_callback = EarlyStopping(
     monitor="val_loss",
     min_delta=0,
@@ -66,26 +68,34 @@ def get_model(model_type, parameters):
         return None
     return model
 
-def fit_model(model, model_type, X_train, y_train, X_test, y_test, parameters):
+def fit_model(model, model_type, X_train, y_train, X_test=None, y_test=None, parameters=None):
+    if X_test is None: # If no validation data is passed, validate with training data
+        X_test = X_train
+        y_test = y_train
+        eval_name = 'train'
+    else:
+        eval_name = 'test'
     if model_type == "NN":
         batch_size = parameters['batch_size']
+        epochs = parameters['epochs']
         model.fit(x=X_train, 
                   y=y_train,
                   batch_size=batch_size,
-                  epochs=100, # If training ever reaches 100 epochs without early stopping, this should be increased
+                  epochs=epochs, # If training ever reaches 100 epochs without early stopping, this should be increased
                   validation_data=(X_test, y_test),
                   callbacks=[earlystopping_callback])
     elif model_type == "XGBoost":
         parameters['eval_metric'] = 'rmse'
+        num_boost_round = parameters['num_boost_round']
         dtrain = xgb.DMatrix(data=X_train,
                              label=y_train)
         dtest = xgb.DMatrix(data=X_test,
                              label=y_test)
         model = xgb.train(params=parameters,
                         dtrain=dtrain,
-                        num_boost_round = 10000, # If training ever reaches 10000 rounds without early stopping, this should be increased
+                        num_boost_round=num_boost_round, # If training ever reaches 10000 rounds without early stopping, this should be increased
                         early_stopping_rounds=20,
-                        evals=[(dtest,'test')],
+                        evals=[(dtest,eval_name)],
                         verbose_eval=20)
     elif model_type == "RandomForest":
         model.fit(X_train, y_train)
@@ -150,10 +160,68 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric
         print(f'Split #{i}, This Result: {result:.4f}, Average Result: {result_avg:.4f}')
         
         # Provide addendum for the last trained model
-        addendum.append([y_test, y_hat, scenario_index, train_index, test_index, result])
+        if scale:
+            addendum.append([y_test, y_hat, scenario_index, train_index, test_index, result, scaler_x, scaler_y])
+        else:
+            addendum.append([y_test, y_hat, scenario_index, train_index, test_index, result])
 
     return result_avg, addendum
 
+def final_train(data_dir=None, model_type='NN', target='Tavg', scale=True, parameters=None):
+    # Get data
+    scenario_index = get_scenario_index(data_dir)
+    X_train, y_train = get_train_data(scenario_index, scenario_index.index, target)
+    
+    # If requested, scale data
+    if scale:
+        scaler_x = StandardScaler().fit(X_train)
+        X_train = scaler_x.transform(X_train)
+        scaler_y = StandardScaler().fit(y_train.reshape(-1,1))
+        y_train = scaler_y.transform(y_train.reshape(-1,1)).reshape(1,-1)[0] 
+    
+    # Get model
+    model = get_model(model_type, parameters)
+    
+    # Train model
+    model = fit_model(model, model_type, X_train, y_train, parameters=parameters)
+    
+    # Return model
+    if scale:
+        return model, scaler_x, scaler_y
+    else:
+        return model
+
+def validate_model(model, model_type='NN', val_data_dir=None,  target='Tavg', scale=True, scaler_x=None, scaler_y=None):
+    # get validation data
+    scenario_index = get_scenario_index(val_data_dir)
+    X_val, y_val = get_train_data(scenario_index, scenario_index.index, target)
+    
+    if scale:
+        X_val = scaler_x.transform(X_val)
+        y_val = scaler_y.transform(y_val.reshape(-1,1)).reshape(1,-1)[0] 
+    
+    # get predictions for validation data
+    if scale:
+        y_hat, y_val = get_predictions(model, X_val, y_val, scale, scaler_y, model_type)
+    else:
+        y_hat = get_predictions(model, X_val, model_type=model_type)
+    
+    # evaluate results
+    rmse = evaluate_results('rmse', y_val, y_hat)
+    r2 = evaluate_results('r2', y_val, y_hat)
+    print(f'RMSE: {rmse:.4f}, R2: {r2:.4f}')
+    
+    # return results
+    val_df = load_data(scenario_index, scenario_index.index)
+    val_df[target+"_hat"] = y_hat
+    
+    results = {
+        'val_df': val_df,
+        'rmse': rmse, 
+        'r2': r2
+    }
+
+    return results
 
 
 
