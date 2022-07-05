@@ -58,7 +58,9 @@ def get_model(model_type, parameters):
         model = None
     elif model_type == "RandomForest":
         n_estimators = parameters['n_estimators']
-        model = RandomForestRegressor(n_estimators=n_estimators, n_jobs=-1)
+        max_depth = parameters['max_depth']
+        max_samples = parameters['max_samples']
+        model = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, max_samples=max_samples, n_jobs=-1)
     elif model_type == "NN":
         n_layers = parameters['n_layers']
         n_hidden_units = parameters['n_hidden_units']
