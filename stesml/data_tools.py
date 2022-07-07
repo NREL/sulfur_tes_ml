@@ -11,7 +11,14 @@ def get_scenario_index(data_dir):
     scenario_index = pd.DataFrame({"filepath": glob.glob(os.path.join(data_dir, "ML_*_*.csv"))})
     return scenario_index
 
-def get_cv(scenario_index, n_repeats=1, random_state=-1):
+def get_train_and_val_index(scenario_index, random_state=-1):
+    if random_state == -1:
+        random_state = random.randrange(2652124)
+    cv = RepeatedKFold(n_splits=5, n_repeats=1, random_state=random_state)
+    train_and_test_index, val_index  = next(cv.split(scenario_index.index))
+    return train_and_test_index, val_index
+
+def get_cv(n_repeats=1, random_state=-1):
     if random_state == -1:
         random_state = random.randrange(2652124)
     cv = RepeatedKFold(n_splits=5, n_repeats=n_repeats, random_state=random_state)
@@ -57,6 +64,8 @@ def get_train_and_test_data(scenario_index, train_index, test_index, target='Tav
         return X_train, y_train, X_test, y_test, scaler_x, scaler_y
     
     return X_train, y_train, X_test, y_test
+
+
 
 
 

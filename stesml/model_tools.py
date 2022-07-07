@@ -13,6 +13,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 
 from stesml.data_tools import get_scenario_index
+from stesml.data_tools import get_train_and_val_index
 from stesml.data_tools import get_cv
 from stesml.data_tools import load_data
 from stesml.data_tools import get_train_data
@@ -130,12 +131,15 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric
     
     # Get a dataframe with the filepaths of each file in the data directory
     scenario_index = get_scenario_index(data_dir)
+    
+    # Break out validation set
+    train_and_test_index, val_index = get_traintest_and_val_index(scenario_index, random_state)
 
     # Split data into train and test sets for cross-validation (80-20 train-test split)
-    cv = get_cv(scenario_index, n_repeats, random_state)
+    cv = get_cv(n_repeats, random_state)
     
     # Loop through the splits in cv
-    for i, (train_index, test_index) in enumerate(cv.split(scenario_index.index)):
+    for i, (train_index, test_index) in enumerate(cv.split(train_and_test_index)):
 
         # Get train and test data
         if scale:
@@ -163,16 +167,21 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric
         
         # Provide addendum for the last trained model
         if scale:
-            addendum.append([y_test, y_hat, scenario_index, train_index, test_index, result, scaler_x, scaler_y])
+            addendum.append([y_test, y_hat, scenario_index, train_index, test_index, val_index, result, scaler_x, scaler_y])
         else:
-            addendum.append([y_test, y_hat, scenario_index, train_index, test_index, result])
+            addendum.append([y_test, y_hat, scenario_index, train_index, test_index, val_index, result])
 
     return result_avg, addendum
 
-def final_train(data_dir=None, model_type='NN', target='Tavg', scale=True, parameters=None):
-    # Get data
+def final_train(data_dir=None, model_type='NN', target='Tavg', scale=True, parameters=None, random_state=5):
+    # Get a dataframe with the filepaths of each file in the data directory
     scenario_index = get_scenario_index(data_dir)
-    X_train, y_train = get_train_data(scenario_index, scenario_index.index, target)
+    
+    # Break out validation set
+    train_index, val_index = get_train_and_val_index(scenario_index, random_state)
+
+    # Get train data
+    X_train, y_train = get_train_data(scenario_index, train_index, target)
     
     # If requested, scale data
     if scale:
@@ -189,14 +198,15 @@ def final_train(data_dir=None, model_type='NN', target='Tavg', scale=True, param
     
     # Return model
     if scale:
-        return model, scaler_x, scaler_y
+        return model, val_index, scaler_x, scaler_y
     else:
-        return model
+        return model, val_index
 
-def validate_model(model, model_type='NN', val_data_dir=None,  target='Tavg', scale=True, scaler_x=None, scaler_y=None):
+def validate_model(model, model_type='NN', data_dir=None, val_index=None,  target='Tavg', scale=True, scaler_x=None, scaler_y=None):
+    
     # get validation data
-    scenario_index = get_scenario_index(val_data_dir)
-    X_val, y_val = get_train_data(scenario_index, scenario_index.index, target)
+    scenario_index = get_scenario_index(data_dir)
+    X_val, y_val = get_train_data(scenario_index, val_index, target)
     
     if scale:
         X_val = scaler_x.transform(X_val)
@@ -214,7 +224,7 @@ def validate_model(model, model_type='NN', val_data_dir=None,  target='Tavg', sc
     print(f'RMSE: {rmse:.4f}, R2: {r2:.4f}')
     
     # return results
-    val_df = load_data(scenario_index, scenario_index.index)
+    val_df = load_data(scenario_index, val_index)
     val_df[target+"_hat"] = y_hat
     
     results = {
@@ -318,6 +328,8 @@ def get_T_from_h_results(test_df, plot=False):
                 continue
             if i < 1:
                 T = grp["Tavg"][i]
+                #if i == 0:
+                #    T_hat_grp = np.append(T_hat_grp, T)
                 T_hat_grp = np.append(T_hat_grp, T)
                 T_prev = T
                 h_prev = h
