@@ -4,23 +4,33 @@ import xgboost as xgb
 from tensorflow import keras
 
 class stes_model:
-    ## For the NN model, the first set of parameters here is for training on full datasets
-    ## The second set of parameters is for training the model with datasets limited to t <= 360
-    NN_parameters = {'n_layers': 1, 'n_hidden_units': 82, 'batch_size': 2809, 'epochs': 10} # Parameters for full training sets
-    NN_truncated_parameters = {'n_layers': 1, 'n_hidden_units': 82, 'batch_size': 10, 'epochs': 9} # Parameters for datasets liimited to t <= 360
+    # Parameters for full training sets
+    NN_parameters = {'n_layers': 1, 'n_hidden_units': 82, 'batch_size': 2809, 'epochs': 10}
+    # Parameters for datasets liimited to t <= 360
+    NN_trunc_parameters = {'n_layers': 1, 'n_hidden_units': 82, 'batch_size': 10, 'epochs': 9}
+    
+    # Parameters for full training sets
     XGB_parameters = {'learning_rate': 0.06600212850505194, 'subsample': 0.6242681848206246, 'colsample_bytree': 0.7982472652709917, 'num_boost_round': 160}
+    # Parameters for datasets liimited to t >= 360
+    XGB_trunc_parameters = {'learning_rate': 0.46124250324792426, 'subsample': 0.14713002237097456, 'colsample_bytree': 0.8127547175856622, 'num_boost_round': 30}
+    
     RF_parameters = {'n_estimators': 150, 'max_depth': 64, 'max_samples': 0.8785156026362354}
-    optimized_model_parameters = {'NN': NN_parameters, 'NN_truncated': NN_truncated_parameters, 'XGBoost': XGB_parameters, 'RandomForest': RF_parameters}
+    
+    optimized_model_parameters = {
+        'NN': NN_parameters, 'NN_trunc': NN_trunc_parameters,
+        'XGBoost': XGB_parameters, 'XGBoost_trunc': XGB_trunc_parameters,
+        'RandomForest': RF_parameters
+    }
     
     @classmethod
     def get_parameters(cls, model_type='NN', truncated=False):
         if truncated:
-            return cls.optimized_model_parameters[model_type + '_truncated']
+            return cls.optimized_model_parameters[model_type + '_trunc']
         return cls.optimized_model_parameters[model_type]
     @classmethod
     def set_parameters(cls, model_type, parameters, truncated=False):
         if truncated:
-            cls.optimized_model_parameters[model_type + '_truncated'] = parameters
+            cls.optimized_model_parameters[model_type + '_trunc'] = parameters
         cls.optimized_model_parameters[model_type] = parameters
     
     @classmethod

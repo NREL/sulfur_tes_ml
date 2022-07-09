@@ -23,9 +23,6 @@ from stesml.data_tools import get_train_and_test_data
 from stesml.postprocessing_tools import get_T
 from stesml.postprocessing_tools import get_h
 
-from stesml.data_tools import get_train_and_test_index_short
-from stesml.data_tools import get_train_data_short
-
 from tensorflow.keras.callbacks import EarlyStopping
 
 from sklearn.preprocessing import StandardScaler
