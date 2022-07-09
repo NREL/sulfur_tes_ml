@@ -125,7 +125,7 @@ def evaluate_results(metric, y_test, y_hat):
         return None
     return result
     
-def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, parameters=None, n_repeats=1, random_state=5):
+def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, parameters=None, n_repeats=1, random_state=5, t_min=-1, t_max=-1):
     result_tot = 0
     addendum = list()
     
@@ -133,7 +133,7 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric
     scenario_index = get_scenario_index(data_dir)
     
     # Break out validation set
-    train_and_test_index, val_index = get_traintest_and_val_index(scenario_index, random_state)
+    train_and_test_index, val_index = get_train_and_val_index(scenario_index, random_state)
 
     # Split data into train and test sets for cross-validation (80-20 train-test split)
     cv = get_cv(n_repeats, random_state)
@@ -143,9 +143,9 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric
 
         # Get train and test data
         if scale:
-            X_train, y_train, X_test, y_test, scaler_x, scaler_y = get_train_and_test_data(scenario_index, train_index, test_index, target, scale)
+            X_train, y_train, X_test, y_test, scaler_x, scaler_y = get_train_and_test_data(scenario_index, train_index, test_index, target, scale, t_min=t_min, t_max=t_max)
         else:
-            X_train, y_train, X_test, y_test = get_train_and_test_data(scenario_index, train_index, test_index, target)
+            X_train, y_train, X_test, y_test = get_train_and_test_data(scenario_index, train_index, test_index, target, t_min=t_min, t_max=t_max)
 
         # Get the model
         model = get_model(model_type, parameters)
@@ -173,7 +173,7 @@ def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric
 
     return result_avg, addendum
 
-def final_train(data_dir=None, model_type='NN', target='Tavg', scale=True, parameters=None, random_state=5):
+def final_train(data_dir=None, model_type='NN', target='Tavg', scale=True, parameters=None, random_state=5, t_min=-1, t_max=-1):
     # Get a dataframe with the filepaths of each file in the data directory
     scenario_index = get_scenario_index(data_dir)
     
@@ -181,7 +181,7 @@ def final_train(data_dir=None, model_type='NN', target='Tavg', scale=True, param
     train_index, val_index = get_train_and_val_index(scenario_index, random_state)
 
     # Get train data
-    X_train, y_train = get_train_data(scenario_index, train_index, target)
+    X_train, y_train = get_train_data(scenario_index, train_index, target, t_min, t_max)
     
     # If requested, scale data
     if scale:
@@ -202,11 +202,11 @@ def final_train(data_dir=None, model_type='NN', target='Tavg', scale=True, param
     else:
         return model, val_index
 
-def validate_model(model, model_type='NN', data_dir=None, val_index=None,  target='Tavg', scale=True, scaler_x=None, scaler_y=None):
+def validate_model(model, model_type='NN', data_dir=None, val_index=None,  target='Tavg', scale=True, scaler_x=None, scaler_y=None, t_min=-1, t_max=-1):
     
     # get validation data
     scenario_index = get_scenario_index(data_dir)
-    X_val, y_val = get_train_data(scenario_index, val_index, target)
+    X_val, y_val = get_train_data(scenario_index, val_index, target, t_min, t_max)
     
     if scale:
         X_val = scaler_x.transform(X_val)
@@ -221,10 +221,10 @@ def validate_model(model, model_type='NN', data_dir=None, val_index=None,  targe
     # evaluate results
     rmse = evaluate_results('rmse', y_val, y_hat)
     r2 = evaluate_results('r2', y_val, y_hat)
-    print(f'RMSE: {rmse:.4f}, R2: {r2:.4f}')
+    print(f'RMSE: {rmse:.7f}, R2: {r2:.7f}')
     
     # return results
-    val_df = load_data(scenario_index, val_index)
+    val_df = load_data(scenario_index, val_index, t_min, t_max)
     val_df[target+"_hat"] = y_hat
     
     results = {
@@ -321,15 +321,15 @@ def get_T_from_h_results(test_df, plot=False):
         T_hat_grp = np.array([])
         Ti = grp["Ti"][0]
         Tw = grp["Tw"][0]
-        T_hat_grp = np.append(T_hat_grp, Ti)
+        #T_hat_grp = np.append(T_hat_grp, Ti)
         T_prev = Ti
         for i, h in enumerate(grp["h_hat"]):
             if i == len(grp["h_hat"]) - 1:
                 continue
-            if i < 1:
-                T = grp["Tavg"][i]
-                #if i == 0:
-                #    T_hat_grp = np.append(T_hat_grp, T)
+            if grp['flow-time'][i] < 360:
+                T = grp["Tavg_hat"][i]
+                if i == 0:
+                    T_hat_grp = np.append(T_hat_grp, T)
                 T_hat_grp = np.append(T_hat_grp, T)
                 T_prev = T
                 h_prev = h
