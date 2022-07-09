@@ -177,6 +177,7 @@ def final_train(data_dir=None, model_type='NN', target='Tavg', scale=True, param
 
     # Get train data
     X_train, y_train = get_train_data(scenario_index, train_index, target, t_min, t_max)
+    X_val, y_val = get_train_data(scenario_index, val_index, target, t_min, t_max)
     
     # If requested, scale data
     if scale:
@@ -189,7 +190,7 @@ def final_train(data_dir=None, model_type='NN', target='Tavg', scale=True, param
     model = get_model(model_type, parameters)
     
     # Train model
-    model = fit_model(model, model_type, X_train, y_train, parameters=parameters)
+    model = fit_model(model, model_type, X_train, y_train, X_val, y_val, parameters=parameters)
     
     # Return model
     if scale:

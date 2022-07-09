@@ -12,7 +12,7 @@ class stes_model:
     # Parameters for full training sets
     XGB_parameters = {'learning_rate': 0.06600212850505194, 'subsample': 0.6242681848206246, 'colsample_bytree': 0.7982472652709917, 'num_boost_round': 160}
     # Parameters for datasets liimited to t >= 360
-    XGB_trunc_parameters = {'learning_rate': 0.46124250324792426, 'subsample': 0.14713002237097456, 'colsample_bytree': 0.8127547175856622, 'num_boost_round': 30}
+    XGB_trunc_parameters = {'learning_rate': 0.06068877787443384, 'subsample': 0.0702388274305115, 'colsample_bytree': 0.8432744159980363, 'num_boost_round': 74}
     
     RF_parameters = {'n_estimators': 150, 'max_depth': 64, 'max_samples': 0.8785156026362354}
     
@@ -36,10 +36,10 @@ class stes_model:
     @classmethod
     def save_model(cls, model, model_type, addendum):
         if model_type == 'NN':
-            model.save("../models/" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H"))
+            model.save("../models/" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H%M"))
         elif model_type == 'XGBoost':
-            model.save_model("../models/" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H") + ".json")
-        joblib.dump(addendum, "../addenda/addendum_" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H") + ".pkl")
+            model.save_model("../models/" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H%M") + ".json")
+        joblib.dump(addendum, "../addenda/addendum_" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H%M") + ".pkl")
     @classmethod
     def load_model(cls, model_type='NN', model_name=None):
         if model_type == 'NN':
