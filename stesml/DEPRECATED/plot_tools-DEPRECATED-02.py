@@ -78,3 +78,17 @@ def plot_average_error(test_df, target='Tavg', t_min=-1, t_max=-1):
     plt.show()
     
     return avg_err
+
+def plot_progress_results(history, model_type, is_recurrent, metric):
+    fig, ax = plt.subplots(figsize=(12,8), dpi= 200, facecolor='w', edgecolor='k')
+    
+    if is_recurrent:
+        model_type = "Recurrent " + model_type
+    else:
+        model_type = "Non-recurrent " + model_type
+
+    ax.plot(*zip(*history))
+    plt.xlabel("n_estimators")
+    plt.ylabel(metric)
+    plt.title("{model_type} Model: {metric} for Test Data".format(model_type=model_type, metric=metric))
+    plt.show()

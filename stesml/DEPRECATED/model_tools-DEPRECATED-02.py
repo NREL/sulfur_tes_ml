@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from typing import Tuple
 
 import xgboost as xgb
 from sklearn.ensemble import RandomForestRegressor
 from xgboost import XGBRegressor
-
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
 
@@ -25,6 +25,8 @@ from stesml.postprocessing_tools import get_h
 
 from stesml.data_tools import get_train_and_test_index_short
 from stesml.data_tools import get_train_data_short
+
+from optuna.integration import TFKerasPruningCallback
 
 from tensorflow.keras.callbacks import EarlyStopping
 
@@ -238,6 +240,85 @@ def validate_model(model, model_type='NN', data_dir=None, target='Tavg', scale=T
 
     return results
 
+
+
+
+
+
+
+
+
+
+
+
+def get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iterations=1, verbose=0, target='Tavg', calc_T_from_h=False, short=False, t=100):
+    
+    rmse = 0
+    r2 = 0
+    rmse_T_tot = 0 # Only used if target is 'h'
+    r2_T_tot = 0 # Only used if target is 'h'
+    
+    for j in range(n_shuffle_iterations):
+        
+        model = get_model(model_type)
+        model.set_params(n_estimators=n_estimators)
+        
+        if short:
+            train_index, train_index_short, test_index = get_train_and_test_index_short(scenario_index)
+            X_train, y_train = get_train_data_short(scenario_index, train_index, train_index_short, target, t=t)
+        else:
+            train_index, test_index = get_train_and_test_index(scenario_index)
+            X_train, y_train = get_train_data(scenario_index, train_index, target)
+            
+        X_test, y_test = get_test_data(scenario_index, test_index, target)
+
+        model.fit(X_train, y_train)
+
+        y_hat = get_predictions(model, X_test)
+        
+        if calc_T_from_h:
+            test_df = load_data(scenario_index, test_index, x=x)
+            test_df["h_hat"] = y_hat
+            rmse_T, r2_T = get_T_from_h_results(test_df, plot=False)
+            rmse_T_tot += rmse_T
+            r2_T_tot += r2_T
+            rmse_T_cur_avg = rmse_T_tot/(j + 1)
+            r2_T_cur_avg = r2_T_tot/(j + 1)
+        rmse += mean_squared_error(y_test, y_hat, squared=False)
+        r2 += r2_score(y_test,y_hat)
+        rmse_cur_avg = rmse/(j + 1)
+        r2_cur_avg = r2/(j + 1)
+
+        if verbose >= 1:
+            print('Estimators:',n_estimators,'Shuffle:',j,'RMSE:',rmse_cur_avg,'R2:',r2_cur_avg)
+            if calc_T_from_h:
+                print('RMSE_T:',rmse_T_cur_avg,'R2_T:',r2_T_cur_avg)
+        if verbose >= 2:
+            print('Predicted:',y_hat)
+            print('Expected:',y_test)
+    
+    rmse = rmse_cur_avg
+    r2 = r2_cur_avg
+    
+    print('# of Estimators: {n_estimators}, RMSE = {rmse:.5f}, r2 = {r2:.5f}'.format(n_estimators=n_estimators, rmse=rmse, r2=r2))
+    
+    if calc_T_from_h:
+        rmse_T = rmse_T_cur_avg
+        r2_T = r2_T_cur_avg
+        print('RMSE_T:',rmse_T,'R2_T:',r2_T)
+        
+    return rmse, r2
+
+def get_progress(model_type, scenario_index, min_estimators, max_estimators, step_size, n_shuffle_iterations=1, verbose=0, target='Tavg'):
+    rmse_history = list()
+    r2_history = list()
+    for n_estimators in range(min_estimators, max_estimators + 1, step_size):
+        rmse, r2 = get_shuffle_results(model_type, scenario_index, n_estimators, n_shuffle_iterations, verbose, target) 
+        rmse_history.append((n_estimators, rmse))
+        r2_history.append((n_estimators, r2))
+    return rmse_history, r2_history
+
+
 def get_T_from_h_results(test_df, plot=False):
     T_hat = np.array([])
     T_expected = np.array([])
@@ -297,3 +378,31 @@ def get_h_from_T_results(test_df, plot=False):
     r2 = r2_score(h_expected, h_hat)
     
     return rmse, r2
+
+
+
+
+
+
+
+
+
+
+
+def focal_obj(X_train):
+    def custom_obj(y: np.ndarray, y_hat: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        rows = y.shape[0]
+        zeros = np.zeros((rows), dtype=float)
+        ones = np.ones((rows), dtype=float)
+        grad = np.zeros((rows), dtype=float)
+        hess = np.zeros((rows), dtype=float)
+        Tw = X_train[:,1]
+        Ti = X_train[:,2]
+        # (y_hat - y)^2 + relu(Ti-y_hat) + relu(y_hat - Tw)
+        grad = 4*(y_hat - y) - 0*np.maximum((Ti - y_hat),zeros) + 0*np.maximum((y_hat - Tw),zeros)
+        hess = 4*ones + 0*np.maximum(np.sign(Ti - y_hat),zeros) + 0*np.maximum(np.sign(y_hat - Tw),zeros)
+        grad = grad.reshape((rows, 1))
+        hess = hess.reshape((rows, 1))
+        return grad, hess
+    return custom_obj
+

@@ -68,3 +68,77 @@ def get_train_and_test_data(scenario_index, train_index, test_index, target='Tav
         return X_train, y_train, X_test, y_test, scaler_x, scaler_y
     
     return X_train, y_train, X_test, y_test
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def load_data_short(scenario_index, selected_index, t=100):
+    """ Load data from files in scenario_index with indices matching ones in selected_index"""
+    
+    df_arr = []
+    for f in scenario_index.loc[selected_index].filepath:
+        Tw = float(f.split("/")[-1].split("_")[1])
+        Ti = float(f.split("/")[-1].split("_")[2].replace(".csv", ""))
+        
+        f_df = pd.read_csv(f)
+
+        f_df["Ti"] = Ti
+        f_df = f_df[f_df['flow-time'] < t]
+        
+        df_arr.append(f_df)
+    
+    combined_df = pd.concat(df_arr)
+    return combined_df
+
+
+def get_train_and_test_index_short(scenario_index, random_state=-1):
+    if random_state == -1:
+        random_state = random.randrange(2652124)
+    cv = RepeatedKFold(n_splits=5, n_repeats=1, random_state=random_state)
+
+    train_index, test_index  = next(cv.split(scenario_index.index))
+    
+    #random_state = random.randrange(2652124)
+    cv = RepeatedKFold(n_splits=2, n_repeats=1, random_state=random_state)
+    train_sub_index = next(cv.split(pd.DataFrame(train_index).index))
+    train_index_short = train_index[train_sub_index[0]]
+    train_index = train_index[train_sub_index[1]]
+    
+    return train_index, train_index_short, test_index
+
+
+
+def get_train_data_short(scenario_index, train_index, train_index_short, target='Tavg', t=100):
+    train_df = load_data(scenario_index, train_index)
+    train_df_short = load_data_short(scenario_index, train_index_short, t)
+    X_train = train_df[["flow-time", "Tw", "Ti"]]
+    X_train_short = train_df_short[["flow-time", "Tw", "Ti"]]
+    X_train = pd.concat((X_train, X_train_short)).to_numpy()
+    y_train = train_df[[target]]
+    y_train_short = train_df_short[[target]]
+    y_train = pd.concat((y_train, y_train_short)).to_numpy().reshape(-1,)
+    return X_train, y_train
+
+
+
+
+
+
+def get_train_and_test_index(scenario_index, random_state=-1):
+    if random_state == -1:
+        random_state = random.randrange(2652124)
+    cv = RepeatedKFold(n_splits=5, n_repeats=1, random_state=random_state)
+
+    train_index, test_index  = next(cv.split(scenario_index.index))
+    
+    return train_index, test_index
