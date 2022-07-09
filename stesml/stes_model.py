@@ -6,37 +6,30 @@ class stes_model:
     RF_parameters = {'n_estimators': 150, 'max_depth': 64, 'max_samples': 0.8785156026362354}
     optimized_model_parameters = {'NN': NN_parameters, 'XGBoost': XGB_parameters, 'RandomForest': RF_parameters}
     
-    NN_addendum = {'model_name': None}
-    XGB_addendum = {'model_name': None}
-    RF_addendum = {'model_name': None}
-    final_model_addendum = {'NN': NN_addendum, 'XGBoost': XGB_addendum, 'RandomForest': RF_addendum}
-    
     @classmethod
     def get_parameters(cls, model_type='NN'):
         return cls.optimized_model_parameters[model_type]
-    
     @classmethod
     def set_parameters(cls, model_type, parameters):
         cls.optimized_model_parameters[model_type] = parameters
     
     @classmethod
-    def get_val_index(cls, model_type='NN', model_name=None):
-        return cls.final_model_addendum[model_type][model_name]['val_index']
-    
+    def save_model(cls, model, model_type):
+        if model_type == 'NN':
+            model.save("../models/" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H"))
+        elif model_type == 'XGBoost':
+            model.save_model("../models/" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H") + ".json")
+        joblib.dump(addendum, "../addenda/addendum_" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H") + ".pkl")
     @classmethod
-    def get_scaler_x(cls, model_type='NN', model_name=None):
-        return cls.final_model_addendum[model_type][model_name]['scaler_x']
+    def load_model(cls, model_type='NN', model_name=None):
+        if model_type == 'NN':
+            model = keras.models.load_model(model_name)
+        elif model_type == 'XGBoost':
+            model = xgb.Booster()
+            model.load_model(model_name)
+        addendum - joblib.load("addendum_" + model_name)
+        return model, addendum
     
-    @classmethod
-    def get_scaler_x(cls, model_type='NN', model_name=None):
-        return cls.final_model_addendum[model_type][model_name]['scaler_x']
-    
-    @classmethod
-    def set_addendum(cls, model_type='NN', model_name=None, addendum):
-        cls.final_model_addendum[model_type][model_name] = addendum
-    
-    @classmethod
-    def get_addendum(cls, model_type='NN', model_name=None):
-        return cls.final_model_addendum[model_type][model_name]
+
     
     
