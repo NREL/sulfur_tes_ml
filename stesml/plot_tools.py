@@ -56,7 +56,15 @@ def plot_average_error(test_df, target='Tavg', t_min=-1, t_max=-1):
         
     avg_err /= count
     
-    ax.plot(grp['flow-time'], avg_err, color='r', linewidth=5)
+    fts = grp['flow-time'].shape[0]
+    aes = avg_err.shape[0]
+    
+    if fts > aes:
+        plot_length = aes
+    else:
+        plot_length = fts
+    
+    ax.plot(grp['flow-time'].head(plot_length), avg_err.head(plot_length), color='r', linewidth=5)
     if target == 'h':
         ax.set_xlim(1)
         ax.set_ylim(0,10)
