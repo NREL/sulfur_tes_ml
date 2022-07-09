@@ -42,6 +42,23 @@ earlystopping_callback = EarlyStopping(
     restore_best_weights=True,
 )
 
+class stes_model:
+    NN_parameters = {'n_layers': 1, 'n_hidden_units': 82, 'batch_size': 2809, 'epochs': 10}
+    XGB_parameters = {'learning_rate': 0.06600212850505194, 'subsample': 0.6242681848206246, 'colsample_bytree': 0.7982472652709917, 'num_boost_round': 160}
+    RF_parameters = {'n_estimators': 150, 'max_depth': 64, 'max_samples': 0.8785156026362354}
+    
+    NN_val_index = None
+
+    optimized_model_parameters = {'NN': NN_parameters, 'XGBoost': XGB_parameters, 'RandomForest': RF_parameters}
+    
+    @classmethod
+    def get_parameters(cls, model_type='NN'):
+        return cls.optimized_model_parameters[model_type]
+    
+    @classmethod
+    def set_parameters(cls, model_type, parameters):
+        cls.optimized_model_parameters[model_type] = parameters
+        
 def build_NN_model(n_layers=3, n_hidden_units=50):
     model = Sequential()
     model.add(Dense(n_hidden_units, activation='relu', input_shape=(3,)))
@@ -198,9 +215,11 @@ def final_train(data_dir=None, model_type='NN', target='Tavg', scale=True, param
     
     # Return model
     if scale:
-        return model, val_index, scaler_x, scaler_y
+        addendum = {'val_index': val_index, 'scaler_x': scaler_x, 'scaler_y': scaler_y}
     else:
-        return model, val_index
+        addendum = {'val_index': val_index}
+        
+    return model, addendum
 
 def validate_model(model, model_type='NN', data_dir=None, val_index=None,  target='Tavg', scale=True, scaler_x=None, scaler_y=None, t_min=-1, t_max=-1):
     
