@@ -329,12 +329,8 @@ def get_T_from_h_results(test_df, plot=False):
         #T_hat_grp = np.append(T_hat_grp, Ti)
         T_prev = Ti
         for i, h in enumerate(grp["h_hat"]):
-            if i == len(grp["h_hat"]) - 1:
-                continue
             if grp['flow-time'][i] < 360:
                 T = grp["Tavg_hat"][i]
-                if i == 0:
-                    T_hat_grp = np.append(T_hat_grp, T)
                 T_hat_grp = np.append(T_hat_grp, T)
                 T_prev = T
                 h_prev = h

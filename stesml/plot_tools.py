@@ -37,7 +37,11 @@ def plot_test_results(test_df, model_type, target='Tavg'):
         plt.title('Tw = {Tw}  Ti = {Ti}'.format(Tw=idx[0], Ti=idx[1]))
         plt.show()
 
-def plot_average_error(test_df, target='Tavg'):
+def plot_average_error(test_df, target='Tavg', t_min=-1, t_max=-1):
+    if t_min > 0:
+        test_df = test_df[test_df['flow_time'] >= t_min]
+    if t_max > 0:
+        test_df = test_df[test_df['flow_time'] <= t_max]
     ax = plt.figure(figsize=(10,5), dpi = 200).add_axes([0,0,1,1])
     
     count = 0
