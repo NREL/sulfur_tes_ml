@@ -29,10 +29,10 @@ def plot_test_results(test_df, model_type, target='Tavg'):
     for idx, grp in test_df.groupby(["Tw", "Ti"]):
         ax = grp.plot(x="flow-time", y=target, c='DarkBlue', linewidth=2.5, label="Expected")
         if target == 'h':
-            #ax.set_xscale('log')
-            ax.set_xlim(100,7200)
-            ax.set_ylim(0,100)
-            #ax.set_yscale('log')
+            ax.set_xscale('log')
+            ax.set_xlim(0.001,7200)
+            #ax.set_ylim(0,100)
+            ax.set_yscale('log')
         plot = grp.plot(x="flow-time", y=target+'_hat', c='DarkOrange', linewidth=2.5, label="Predicted ({model_type})".format(model_type=model_type), ax=ax)
         plt.title('Tw = {Tw}  Ti = {Ti}'.format(Tw=idx[0], Ti=idx[1]))
         plt.show()
