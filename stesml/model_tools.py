@@ -194,9 +194,9 @@ def final_train(data_dir=None, model_type='NN', target='Tavg', scale=True, param
     
     # Return model
     if scale:
-        addendum = {'train_index': val_index, 'val_index': val_index, 'scaler_x': scaler_x, 'scaler_y': scaler_y}
+        addendum = {'train_index': train_index, 'val_index': val_index, 'scaler_x': scaler_x, 'scaler_y': scaler_y}
     else:
-        addendum = {'train_index': val_index, 'val_index': val_index}
+        addendum = {'train_index': train_index, 'val_index': val_index}
         
     return model, addendum
 
