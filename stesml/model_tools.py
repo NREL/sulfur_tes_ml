@@ -27,6 +27,8 @@ from tensorflow.keras.callbacks import EarlyStopping
 
 from sklearn.preprocessing import StandardScaler
 
+from scipy.signal import medfilt
+
 earlystopping_callback = EarlyStopping(
     monitor="val_loss",
     min_delta=0,
@@ -277,6 +279,7 @@ def get_h_from_T_results(test_df, plot=False):
     h_expected = np.array([])
     for idx, grp in test_df.groupby(["Tw", "Ti"]):
         h_hat_grp = get_h(grp)
+        h_hat_grp = medfilt(h_hat_grp)
         if plot:
             # Plotting results
             grp["h_hat"] = h_hat_grp
@@ -284,6 +287,7 @@ def get_h_from_T_results(test_df, plot=False):
             plot = grp.plot(x="flow-time", y='h_hat', c='DarkOrange', linewidth=2.5, label="Predicted", ax=ax)
             #ax.set_xscale('log')
             ax.set_yscale('log')
+            ax.set_xlim(0.001,7199)
             #plot.set_xscale('log')
             plot.set_yscale('log')
             plt.title('Tw = {Tw}  Ti = {Ti}'.format(Tw=idx[0], Ti=idx[1]))
