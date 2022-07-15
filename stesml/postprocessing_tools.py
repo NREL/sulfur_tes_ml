@@ -19,21 +19,33 @@ def get_Ac():
 
 def get_m(T, Ac):
     # Get mass for a cross-sectional area of pipe, assuming unit length
-    rho = get_rho(T)
-    m = Ac * rho
-    return m
+    if type(T) is list:
+        m_list = list()
+        for t in T:
+            m_list.append(get_m(t, Ac))
+            return m_list
+    else:
+        rho = get_rho(T)
+        m = Ac * rho
+        return m
 
-def get_Cp(T):           
-    if T <= 392:                  
-        Cp = 996.458/1000
-    elif T > 392 and T <= 431.2:
-        Cp = ( 3.636e-7*math.exp(1.925/(T - 440.4)) ) + ( 0.002564*T )
-    elif T>431.2 and T<718:
-        Cp= 1.065 + ( 2.599/(T- 428) ) - ( 0.3092/((T - 428)**2) ) + ( 5.911e-9*((T - 428)**3) )
-    elif T>=718:
-        Cp = 1215.535/1000;
-    Cp = Cp*1000
-    return Cp
+def get_Cp(T):
+    if type(T) is list:
+        Cp_list = list()
+        for t in T:
+            Cp_list.append(get_Cp(t))
+            return Cp_list
+    else:
+        if T <= 392:                  
+            Cp = 996.458/1000
+        elif T > 392 and T <= 431.2:
+            Cp = ( 3.636e-7*math.exp(1.925/(T - 440.4)) ) + ( 0.002564*T )
+        elif T>431.2 and T<718:
+            Cp= 1.065 + ( 2.599/(T- 428) ) - ( 0.3092/((T - 428)**2) ) + ( 5.911e-9*((T - 428)**3) )
+        elif T>=718:
+            Cp = 1215.535/1000;
+        Cp = Cp*1000
+        return Cp
 
 def get_As():
     As = pi * d_i # Heat transfer surface area, assuming unit length
