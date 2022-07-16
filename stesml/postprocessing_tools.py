@@ -23,7 +23,7 @@ def get_m(T, Ac):
         m_list = list()
         for t in T:
             m_list.append(get_m(t, Ac))
-            return m_list
+        return m_list
     else:
         rho = get_rho(T)
         m = Ac * rho
@@ -34,7 +34,7 @@ def get_Cp(T):
         Cp_list = list()
         for t in T:
             Cp_list.append(get_Cp(t))
-            return Cp_list
+        return Cp_list
     else:
         if T <= 392:                  
             Cp = 996.458/1000
