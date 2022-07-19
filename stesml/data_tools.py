@@ -11,12 +11,12 @@ def get_scenario_index(data_dir):
     scenario_index = pd.DataFrame({"filepath": glob.glob(os.path.join(data_dir, "ML_*_*.csv"))})
     return scenario_index
 
-def get_train_and_val_index(scenario_index, random_state=-1):
+def get_index_splits(scenario_index, random_state=-1):
     if random_state == -1:
         random_state = random.randrange(2652124)
-    cv = RepeatedKFold(n_splits=5, n_repeats=1, random_state=random_state)
-    train_and_test_index, val_index  = next(cv.split(scenario_index.index))
-    return train_and_test_index, val_index
+    cv = get_cv(random_state=random_state)
+    train_and_val_index, test_index  = next(cv.split(scenario_index.index))
+    return train_and_val_index, test_index
 
 def get_cv(n_repeats=1, random_state=-1):
     if random_state == -1:
@@ -24,7 +24,7 @@ def get_cv(n_repeats=1, random_state=-1):
     cv = RepeatedKFold(n_splits=5, n_repeats=n_repeats, random_state=random_state)
     return cv
 
-def load_data(scenario_index, selected_index, t_min=-1, t_max=-1):
+def get_dataframe(scenario_index, selected_index, t_min=-1, t_max=-1):
     """ Load data from files in scenario_index with indices matching ones in selected_index"""
     df_arr = []
     for f in scenario_index.loc[selected_index].filepath:
@@ -40,31 +40,31 @@ def load_data(scenario_index, selected_index, t_min=-1, t_max=-1):
     combined_df = pd.concat(df_arr)
     return combined_df
 
-def get_train_data(scenario_index, train_index, target='Tavg', t_min=-1, t_max=-1):
-    train_df = load_data(scenario_index, train_index, t_min, t_max)
-    X_train = train_df[["flow-time", "Tw", "Ti"]].to_numpy()
-    y_train = train_df[[target]].to_numpy().reshape(-1,)
-    return X_train, y_train
+def get_split_data(scenario_index, split_index, target='Tavg', t_min=-1, t_max=-1):
+    split_df = get_dataframe(scenario_index, split_index, t_min, t_max)
+    X_split = split_df[["flow-time", "Tw", "Ti"]].to_numpy()
+    y_split = split_df[[target]].to_numpy().reshape(-1,)
+    return X_split, y_split
 
-def get_test_data(scenario_index, test_index, target='Tavg', t_min=-1, t_max=-1):
-    test_df = load_data(scenario_index, test_index, t_min, t_max)
-    X_test = test_df[["flow-time", "Tw", "Ti"]].to_numpy()
-    y_test = test_df[[target]].to_numpy().reshape(-1,)
-    return X_test, y_test
-
-def get_train_and_test_data(scenario_index, train_index, test_index, target='Tavg', scale=False, t_min=-1, t_max=-1):
-    X_train, y_train = get_train_data(scenario_index, train_index, target, t_min, t_max)
-    X_test, y_test = get_test_data(scenario_index, test_index, target, t_min, t_max)
+def get_scaled_data(X, y, scaler_X=None, scaler_y=None):
+    return_scaler_X = False
+    return_scaler_y = False
     
-    if scale:
-        scaler_x = StandardScaler().fit(X_train)
-        X_train = scaler_x.transform(X_train)
-        X_test = scaler_x.transform(X_test)
+    if scaler_X == None:
+        scaler_X = StandardScaler().fit(X)
+        return_scaler_X = True
+    if scaler_y == None:
+        scaler_y = StandardScaler().fit(y.reshape(-1,1))
+        return_scaler_y = True
         
-        scaler_y = StandardScaler().fit(y_train.reshape(-1,1))
-        y_train = scaler_y.transform(y_train.reshape(-1,1)).reshape(1,-1)[0]
-        y_test = scaler_y.transform(y_test.reshape(-1,1)).reshape(1,-1)[0] 
-        
-        return X_train, y_train, X_test, y_test, scaler_x, scaler_y
+    X_scaled = scaler_X.transform(X)
+    y_scaled = scaler_y.transform(y.reshape(-1,1)).reshape(1,-1)[0]
     
-    return X_train, y_train, X_test, y_test
+    if return_scaler_X and return_scaler_y:
+        return X_scaled, y_scaled, scaler_X, scaler_y
+    elif return_scaler_X:
+        return X_scaled, y_scaled, scaler_X
+    elif return_scaler_y:
+        return X_scaled, y_scaled, scaler_y
+    else:
+        return X_scaled, y_scaled

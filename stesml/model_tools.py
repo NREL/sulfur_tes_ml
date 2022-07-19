@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 
 import xgboost as xgb
 from sklearn.ensemble import RandomForestRegressor
-from xgboost import XGBRegressor
 
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_squared_error
@@ -13,21 +12,16 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 
 from stesml.data_tools import get_scenario_index
-from stesml.data_tools import get_train_and_val_index
+from stesml.data_tools import get_index_splits
 from stesml.data_tools import get_cv
-from stesml.data_tools import load_data
-from stesml.data_tools import get_train_data
-from stesml.data_tools import get_test_data
-from stesml.data_tools import get_train_and_test_data
+from stesml.data_tools import get_dataframe
+from stesml.data_tools import get_split_data
+from stesml.data_tools import get_scaled_data
 
-from stesml.postprocessing_tools import get_T
-from stesml.postprocessing_tools import get_h
+from stesml.postprocessing_tools import get_T_from_h
+from stesml.postprocessing_tools import get_h_from_T
 
 from tensorflow.keras.callbacks import EarlyStopping
-
-from sklearn.preprocessing import StandardScaler
-
-from scipy.signal import medfilt
 
 earlystopping_callback = EarlyStopping(
     monitor="val_loss",
@@ -68,13 +62,13 @@ def get_model(model_type, parameters):
         return None
     return model
 
-def fit_model(model, model_type, X_train, y_train, X_test=None, y_test=None, parameters=None):
-    if X_test is None: # If no validation data is passed, validate with training data
-        X_test = X_train
-        y_test = y_train
+def fit_model(model, model_type, X_train, y_train, X_val=None, y_val=None, parameters=None):
+    if X_val is None: # If no validation data is passed, validate with training data
+        X_val = X_train
+        y_val = y_train
         eval_name = 'train'
     else:
-        eval_name = 'test'
+        eval_name = 'val'
     if model_type == "NN":
         batch_size = parameters['batch_size']
         epochs = parameters['epochs']
@@ -82,183 +76,185 @@ def fit_model(model, model_type, X_train, y_train, X_test=None, y_test=None, par
                   y=y_train,
                   batch_size=batch_size,
                   epochs=epochs, # If training ever reaches 100 epochs without early stopping, this should be increased
-                  validation_data=(X_test, y_test),
+                  validation_data=(X_val, y_val),
                   callbacks=[earlystopping_callback])
     elif model_type == "XGBoost":
         parameters['eval_metric'] = 'rmse'
         num_boost_round = parameters['num_boost_round']
         dtrain = xgb.DMatrix(data=X_train,
                              label=y_train)
-        dtest = xgb.DMatrix(data=X_test,
-                             label=y_test)
+        dval = xgb.DMatrix(data=X_val,
+                             label=y_val)
         model = xgb.train(params=parameters,
                         dtrain=dtrain,
                         num_boost_round=num_boost_round, # If training ever reaches 10000 rounds without early stopping, this should be increased
                         early_stopping_rounds=20,
-                        evals=[(dtest,eval_name)],
+                        evals=[(dval,eval_name)],
                         verbose_eval=20)
     elif model_type == "RandomForest":
         model.fit(X_train, y_train)
     return model
     
-def get_predictions(model, X_test, y_test=None, scale=False, scaler_y=None, model_type='NN'):
+def get_predictions(model, X_val, y_val=None, scale=False, scaler_y=None, model_type='NN'):
     if model_type == 'XGBoost':
-        X_test = xgb.DMatrix(data=X_test)
-    y_hat = model.predict(X_test)
+        X_val = xgb.DMatrix(data=X_val)
+    y_hat = model.predict(X_val)
     if scale:
         y_hat = scaler_y.inverse_transform(y_hat.reshape(-1,1)).reshape(1,-1)[0]
-        y_test = scaler_y.inverse_transform(y_test.reshape(-1,1)).reshape(1,-1)[0]
-        return y_hat, y_test
+        y_val = scaler_y.inverse_transform(y_val.reshape(-1,1)).reshape(1,-1)[0]
+        return y_hat, y_val
     else:
         return y_hat
 
-def evaluate_results(metric, y_test, y_hat):
+def evaluate_results(metric, y_val, y_hat):
     if metric == 'rmse':
-        result = mean_squared_error(y_test, y_hat, squared=False)
+        result = mean_squared_error(y_val, y_hat, squared=False)
     elif metric == 'r2':
-        result = r2_score(y_test, y_hat)
+        result = r2_score(y_val, y_hat)
     else:
         print('Metric must either be rmse or r2')
         return None
     return result
     
-def build_train_test_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, parameters=None, n_repeats=1, random_state=5, t_min=-1, t_max=-1):
+def train_and_validate_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, parameters=None, n_repeats=1, random_state=5, t_min=-1, t_max=-1, split_test_data=False):
     result_tot = 0
-    addendum = list()
+    addenda = list()
     
     # Get a dataframe with the filepaths of each file in the data directory
     scenario_index = get_scenario_index(data_dir)
     
-    # Break out validation set
-    train_and_test_index, val_index = get_train_and_val_index(scenario_index, random_state)
+    # If requested, break out test set
+    if split_test_data:
+        train_and_val_index, test_index = get_index_splits(scenario_index, random_state)
+    else:
+        train_and_val_index = scenario_index.index
+        test_index = None
 
-    # Split data into train and test sets for cross-validation (80-20 train-test split)
+    # Generate cross-validation object (80-20 train-val split)
     cv = get_cv(n_repeats, random_state)
     
     # Loop through the splits in cv
-    for i, (train_index, test_index) in enumerate(cv.split(train_and_test_index)):
+    for i, (train_index, val_index) in enumerate(cv.split(train_and_val_index)):
 
-        # Get train and test data
+        # Get train and val data
+        X_train, y_train = get_split_data(scenario_index, train_index, target, t_min, t_max)
+        X_val, y_val = get_split_data(scenario_index, val_index, target, t_min, t_max)
+    
+        # If requested, scale data
         if scale:
-            X_train, y_train, X_test, y_test, scaler_x, scaler_y = get_train_and_test_data(scenario_index, train_index, test_index, target, scale, t_min=t_min, t_max=t_max)
+            X_train, y_train, scaler_X, scaler_y = get_scaled_data(X_train, y_train)
+            X_val, y_val = get_scaled_data(X_val, y_val, scaler_X, scaler_y)
         else:
-            X_train, y_train, X_test, y_test = get_train_and_test_data(scenario_index, train_index, test_index, target, t_min=t_min, t_max=t_max)
+            scaler_X, scaler_y = None, None
 
         # Get the model
         model = get_model(model_type, parameters)
 
         # Fit the model to training data
-        model = fit_model(model, model_type, X_train, y_train, X_test, y_test, parameters)
+        model = fit_model(model, model_type, X_train, y_train, X_val, y_val, parameters)
 
-        # Get predictions for test data
+        # Get predictions for validation data
         if scale:
-            y_hat, y_test = get_predictions(model, X_test, y_test, scale, scaler_y, model_type)
+            y_hat, y_val = get_predictions(model, X_val, y_val, scale, scaler_y, model_type)
         else:
-            y_hat = get_predictions(model, X_test, model_type=model_type)
+            y_hat = get_predictions(model, X_val, model_type=model_type)
 
         # Evaluate results
-        result = evaluate_results(metric, y_test, y_hat)
+        result = evaluate_results(metric, y_val, y_hat)
         result_tot += result
         result_avg = result_tot/(i+1)
         print(f'Split #{i}, This Result: {result:.4f}, Average Result: {result_avg:.4f}')
         
-        # Provide addendum for the last trained model
-        if scale:
-            addendum.append([y_test, y_hat, scenario_index, train_index, test_index, val_index, result, scaler_x, scaler_y])
-        else:
-            addendum.append([y_test, y_hat, scenario_index, train_index, test_index, val_index, result])
+        # Provide addendum for the this model
+        addendum = {
+            'y_val': y_val,
+            'y_hat': y_hat,
+            'scenario_index': scenario_index,
+            'train_index': train_index, 
+            'val_index': val_index, 
+            'test_index': test_index, 
+            'result': result,
+            'scaler_X': scaler_X, 
+            'scaler_y': scaler_y
+            }
+        addenda.append(addendum)
+    
+    return result_avg, addenda
 
-    return result_avg, addendum
-
-def final_train(data_dir=None, model_type='NN', target='Tavg', scale=True, parameters=None, random_state=5, t_min=-1, t_max=-1):
+def train_model(data_dir=None, model_type='NN', target='Tavg', scale=True, parameters=None, random_state=5, t_min=-1, t_max=-1):
     # Get a dataframe with the filepaths of each file in the data directory
     scenario_index = get_scenario_index(data_dir)
     
-    # Break out validation set
-    train_index, val_index = get_train_and_val_index(scenario_index, random_state)
+    # Break out test set
+    train_index, test_index = get_index_splits(scenario_index, random_state)
 
     # Get train data
-    X_train, y_train = get_train_data(scenario_index, train_index, target, t_min, t_max)
-    X_val, y_val = get_train_data(scenario_index, val_index, target, t_min, t_max)
+    X_train, y_train = get_split_data(scenario_index, train_index, target, t_min, t_max)
+    X_test, y_test = get_split_data(scenario_index, test_index, target, t_min, t_max)
     
     # If requested, scale data
     if scale:
-        scaler_x = StandardScaler().fit(X_train)
-        X_train = scaler_x.transform(X_train)
-        scaler_y = StandardScaler().fit(y_train.reshape(-1,1))
-        y_train = scaler_y.transform(y_train.reshape(-1,1)).reshape(1,-1)[0] 
+        X_train, y_train, scaler_X, scaler_y = get_scaled_data(X_train, y_train)
+        X_test, y_test = get_scaled_data(X_test, y_test, scaler_X, scaler_y)
+    else:
+        scaler_X, scaler_y = None, None
     
     # Get model
     model = get_model(model_type, parameters)
     
     # Train model
-    model = fit_model(model, model_type, X_train, y_train, X_val, y_val, parameters=parameters)
+    model = fit_model(model, model_type, X_train, y_train, X_test, y_test, parameters=parameters)
     
-    # Return model
-    if scale:
-        addendum = {'train_index': train_index, 'val_index': val_index, 'scaler_x': scaler_x, 'scaler_y': scaler_y}
-    else:
-        addendum = {'train_index': train_index, 'val_index': val_index}
-        
+    # Build addendum
+    addendum = {'train_index': train_index, 'test_index': test_index, 'scaler_X': scaler_X, 'scaler_y': scaler_y}
+    
     return model, addendum
 
-def validate_model(model, model_type='NN', data_dir=None, target='Tavg', scale=True, addendum=None, t_min=-1, t_max=-1):
-    
-    # get validation data
+def test_model(model, model_type='NN', data_dir=None, target='Tavg', scale=True, addendum=None, t_min=-1, t_max=-1):
+    # Get test data
     scenario_index = get_scenario_index(data_dir)
-    val_index = addendum['val_index']
-    X_val, y_val = get_train_data(scenario_index, val_index, target, t_min, t_max)
-    
-    if scale:
-        scaler_x = addendum['scaler_x']
-        scaler_y = addendum['scaler_y']
-        X_val = scaler_x.transform(X_val)
-        y_val = scaler_y.transform(y_val.reshape(-1,1)).reshape(1,-1)[0] 
-    
-    # get predictions for validation data
-    if scale:
-        y_hat, y_val = get_predictions(model, X_val, y_val, scale, scaler_y, model_type)
+    if 'test_index' not in addendum: # This is here for backwards compatibility, so older models still work
+        test_index = addendum['val_index']
     else:
-        y_hat = get_predictions(model, X_val, model_type=model_type)
+        test_index = addendum['test_index']
+    X_test, y_test = get_split_data(scenario_index, test_index, target, t_min, t_max)
+    
+    if scale:
+        if 'scaler_X' not in addendum: # This is here for backwards compatibility, so older models still work
+            scaler_X = addendum['scaler_x']
+        else:
+            scaler_X = addendum['scaler_X']
+        scaler_y = addendum['scaler_y']
+        X_test, y_test = get_scaled_data(X_test, y_test, scaler_X, scaler_y)
+    
+    # get predictions for test data
+    if scale:
+        y_hat, y_test = get_predictions(model, X_test, y_test, scale, scaler_y, model_type)
+    else:
+        y_hat = get_predictions(model, X_test, model_type=model_type)
     
     # evaluate results
-    rmse = evaluate_results('rmse', y_val, y_hat)
-    r2 = evaluate_results('r2', y_val, y_hat)
+    rmse = evaluate_results('rmse', y_test, y_hat)
+    r2 = evaluate_results('r2', y_test, y_hat)
     print(f'RMSE: {rmse:.7f}, R2: {r2:.7f}')
     
     # return results
-    val_df = load_data(scenario_index, val_index, t_min, t_max)
-    val_df[target+"_hat"] = y_hat
+    test_df = get_dataframe(scenario_index, test_index, t_min, t_max)
+    test_df[target+"_hat"] = y_hat
     
     results = {
-        'val_df': val_df,
+        'test_df': test_df,
         'rmse': rmse, 
         'r2': r2
     }
 
     return results
 
-def get_T_from_h_results(test_df, plot=False):
+def get_T_from_h_results(test_df, plot=False, hybrid_model=False, hybrid_split_time=-1):
     T_hat = np.array([])
     T_expected = np.array([])
     for idx, grp in test_df.groupby(["Tw", "Ti"]):
-        T_hat_grp = np.array([])
-        Ti = grp["Ti"][0]
-        Tw = grp["Tw"][0]
-        #T_hat_grp = np.append(T_hat_grp, Ti)
-        T_prev = Ti
-        for i, h in enumerate(grp["h_hat"]):
-            if grp['flow-time'][i] < 360:
-                T = grp["Tavg_hat"][i]
-                T_hat_grp = np.append(T_hat_grp, T)
-                T_prev = T
-                h_prev = h
-                continue
-            timestep = grp["flow-time"][i] - grp["flow-time"][i-1]
-            T = get_T(T_prev, h_prev, Tw, timestep)
-            T_hat_grp = np.append(T_hat_grp, T)
-            T_prev = T
-            h_prev = h
+        T_hat_grp = get_T_from_h(grp, hybrid_model, hybrid_split_time)
         if plot:
             # Plotting results
             grp["T_hat"] = T_hat_grp
@@ -278,17 +274,14 @@ def get_h_from_T_results(test_df, plot=False):
     h_hat = np.array([])
     h_expected = np.array([])
     for idx, grp in test_df.groupby(["Tw", "Ti"]):
-        h_hat_grp = get_h(grp)
-        h_hat_grp = medfilt(h_hat_grp)
+        h_hat_grp = get_h_from_T(grp)
         if plot:
             # Plotting results
             grp["h_hat"] = h_hat_grp
             ax = grp.plot(x="flow-time", y='h', c='DarkBlue', linewidth=2.5, label="Expected")
             plot = grp.plot(x="flow-time", y='h_hat', c='DarkOrange', linewidth=2.5, label="Predicted", ax=ax)
-            #ax.set_xscale('log')
             ax.set_yscale('log')
             ax.set_xlim(0.001,7199)
-            #plot.set_xscale('log')
             plot.set_yscale('log')
             plt.title('Tw = {Tw}  Ti = {Ti}'.format(Tw=idx[0], Ti=idx[1]))
             plt.show()

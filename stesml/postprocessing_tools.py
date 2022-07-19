@@ -65,7 +65,7 @@ def get_dT_dt(T_list, i, timestep):
     dT_dt = (T_next - T_prev) / timestep
     return dT_dt
 
-def get_h(df):
+def get_h_from_T(df):
     ######################
     # Formula:
     #
@@ -79,33 +79,49 @@ def get_h(df):
     
     T_list = df[["Tavg_hat"]].to_numpy()
     time = df[["flow-time"]].to_numpy()
-    #timestep = time[1][0] - time[0][0]
     Tw = df[["Tw"]].to_numpy()[0][0]
     As = get_As()
     Ac = get_Ac()
 
-    h = list()
+    h_hat = list()
     for i, T in enumerate(T_list):
         T = T[0]
         # Cannot get centered diff derivative for T at first and last datapoints
         if i == 0 or i == len(T_list) - 1:
-            h.append(0)
+            h_hat.append(0)
             continue
         timestep = time[i+1][0] - time[i-1][0]
         m = get_m(T, Ac)
         Cp = get_Cp(T)
         dT_dt = get_dT_dt(T_list, i, timestep)
-        h_i = (m * Cp * dT_dt) / (As * (Tw-T))
-        if h_i < 0 or h_i > 100000 or math.isnan(h_i):
-            h_i = 0
-        h.append(h_i)
-    return h
+        h = (m * Cp * dT_dt) / (As * (Tw-T))
+        if h < 0 or h > 100000 or math.isnan(h):
+            h = 0
+        h_hat.append(h)
+    return h_hat
 
-def get_T(T_prev, h, Tw, timestep):
+def get_T_from_h(df, hybrid_model=False, hybrid_split_time=-1):
+    T_hat = list()
+    Ti = df["Ti"][0]
+    Tw = df["Tw"][0]
     Ac = get_Ac()
-    m = get_m(T_prev, Ac)
-    Cp = get_Cp(T_prev)
     As = get_As()
-    slope = ( h*As*(Tw - T_prev) )/( m*Cp )
-    T = slope*timestep + T_prev
-    return T
+    for i, h in enumerate(df["h_hat"]):
+        if hybrid_model and df['flow-time'][i] < hybrid_split_time:
+            T = df["Tavg_hat"][i]
+            T_hat.append(T)
+            T_prev = T
+            h_prev = h
+            continue
+        if i == 0:
+            T = Ti
+        else:
+            timestep = df["flow-time"][i] - df["flow-time"][i-1]
+            m = get_m(T_prev, Ac)
+            Cp = get_Cp(T_prev)
+            slope = ( h*As*(Tw - T_prev) )/( m*Cp )
+            T = slope*timestep + T_prev
+        T_hat.append(T)
+        T_prev = T
+        h_prev = h
+    return T_hat
