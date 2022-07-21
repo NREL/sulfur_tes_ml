@@ -39,9 +39,9 @@ def get_dataframe(scenario_index, selected_index, t_min=-1, t_max=-1):
     combined_df = pd.concat(df_arr)
     return combined_df
 
-def get_split_data(scenario_index, split_index, target='Tavg', t_min=-1, t_max=-1):
+def get_split_data(scenario_index, split_index, target='Tavg', t_min=-1, t_max=-1, features=["flow-time", "Tw", "Ti"]):
     split_df = get_dataframe(scenario_index, split_index, t_min, t_max)
-    X_split = split_df[["flow-time", "Tw", "Ti"]].to_numpy()
+    X_split = split_df[features].to_numpy()
     y_split = split_df[[target]].to_numpy().reshape(-1,)
     return X_split, y_split
 
