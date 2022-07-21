@@ -165,7 +165,7 @@ def train_and_validate_model(data_dir=None, model_type='NN', target='Tavg', metr
         result_avg = result_tot/(i+1)
         print(f'Split #{i}, This Result: {result:.4f}, Average Result: {result_avg:.4f}')
         
-        # Provide addendum for the this model
+        # Provide addendum for this model
         addendum = {
             'y_val': y_val,
             'y_hat': y_hat,
@@ -219,6 +219,7 @@ def test_model(model, model_type='NN', data_dir=None, target='Tavg', scale=True,
         test_index = addendum['test_index']
     X_test, y_test = get_split_data(scenario_index, test_index, target, t_min, t_max)
     
+    # If requested, scale data
     if scale:
         if 'scaler_X' not in addendum: # This is here for backwards compatibility, so older models still work
             scaler_X = addendum['scaler_x']
