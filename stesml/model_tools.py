@@ -116,7 +116,7 @@ def evaluate_results(metric, y_val, y_hat):
         return None
     return result
     
-def train_and_validate_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, parameters=None, n_repeats=1, random_state=5, t_min=-1, t_max=-1, split_test_data=False):
+def train_and_validate_model(data_dir=None, model_type='NN', target='Tavg', metric='rmse', scale=True, parameters=None, n_repeats=1, random_state=5, t_min=-1, t_max=-1, split_test_data=False, features=["flow-time", "Tw", "Ti"]):
     result_tot = 0
     addenda = list()
     
@@ -137,8 +137,8 @@ def train_and_validate_model(data_dir=None, model_type='NN', target='Tavg', metr
     for i, (train_index, val_index) in enumerate(cv.split(train_and_val_index)):
 
         # Get train and val data
-        X_train, y_train = get_split_data(scenario_index, train_index, target, t_min, t_max)
-        X_val, y_val = get_split_data(scenario_index, val_index, target, t_min, t_max)
+        X_train, y_train = get_split_data(scenario_index, train_index, target, t_min, t_max, features)
+        X_val, y_val = get_split_data(scenario_index, val_index, target, t_min, t_max, features)
     
         # If requested, scale data
         if scale:
@@ -181,7 +181,7 @@ def train_and_validate_model(data_dir=None, model_type='NN', target='Tavg', metr
     
     return result_avg, addenda
 
-def train_model(data_dir=None, model_type='NN', target='Tavg', scale=True, parameters=None, random_state=5, t_min=-1, t_max=-1):
+def train_model(data_dir=None, model_type='NN', target='Tavg', scale=True, parameters=None, random_state=5, t_min=-1, t_max=-1, features=["flow-time", "Tw", "Ti"]):
     # Get a dataframe with the filepaths of each file in the data directory
     scenario_index = get_scenario_index(data_dir)
     
@@ -189,8 +189,8 @@ def train_model(data_dir=None, model_type='NN', target='Tavg', scale=True, param
     train_index, test_index = get_index_splits(scenario_index, random_state)
 
     # Get train data
-    X_train, y_train = get_split_data(scenario_index, train_index, target, t_min, t_max)
-    X_test, y_test = get_split_data(scenario_index, test_index, target, t_min, t_max)
+    X_train, y_train = get_split_data(scenario_index, train_index, target, t_min, t_max, features)
+    X_test, y_test = get_split_data(scenario_index, test_index, target, t_min, t_max, features)
     
     # If requested, scale data
     if scale:
@@ -210,14 +210,14 @@ def train_model(data_dir=None, model_type='NN', target='Tavg', scale=True, param
     
     return model, addendum
 
-def test_model(model, model_type='NN', data_dir=None, target='Tavg', scale=True, addendum=None, t_min=-1, t_max=-1):
+def test_model(model, model_type='NN', data_dir=None, target='Tavg', scale=True, addendum=None, t_min=-1, t_max=-1, features=["flow-time", "Tw", "Ti"]):
     # Get test data
     scenario_index = get_scenario_index(data_dir)
     if 'test_index' not in addendum: # This is here for backwards compatibility, so older models still work
         test_index = addendum['val_index']
     else:
         test_index = addendum['test_index']
-    X_test, y_test = get_split_data(scenario_index, test_index, target, t_min, t_max)
+    X_test, y_test = get_split_data(scenario_index, test_index, target, t_min, t_max, features)
     
     # If requested, scale data
     if scale:
