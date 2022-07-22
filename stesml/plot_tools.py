@@ -30,22 +30,12 @@ def plot_results(df, model_type, target='Tavg', x="flow-time", scenario_features
         figures[key] = fig
     return figures
 
-def save_figures(figures):
-    figures_directory = '../figures/' + datetime.datetime.now().strftime("%Y%m%d-%H%M") + '/'
-    os.mkdir(figures_directory)
-    for key, figure in figures.items():
-        figure.savefig(figures_directory + key + '.png', bbox_inches='tight')
-    return figures_directory
-
-def plot_average_error(df, target='Tavg', t_min=-1, t_max=-1, x="flow-time", scenario_features=["Tw", "Ti"]):
-    if t_min > 0:
-        df = df[df[x] >= t_min]
-    if t_max > 0:
-        df = df[df[x] <= t_max]
+def plot_average_error(df, target='Tavg', x="flow-time", x_max=7200, x_stepsize=0.1, scenario_features=["Tw", "Ti"]):
     ax = plt.figure(figsize=(6,4), dpi = 200).add_axes([0,0,1,1])
-    
+
     count = 0
-    avg_err = [0] * 72000
+    n_steps = int(x_max/x_stepsize)
+    avg_err = [0] * n_steps
     for idx, grp in df.groupby(scenario_features):
         ax.plot(grp[x], abs(grp[target+'_hat'] - grp[target]), color='black', linewidth=1, alpha=0.5)
         this_err = abs(grp[target+'_hat'] - grp[target]).tolist()
@@ -54,8 +44,8 @@ def plot_average_error(df, target='Tavg', t_min=-1, t_max=-1, x="flow-time", sce
         
     avg_err[:] = [n / count for n in avg_err]
     
-    avg_err_time = np.arange(0, 7200, .1)
-    ax.plot(avg_err_time, avg_err[:72000], color='r', linewidth=5)
+    avg_err_x = np.arange(0, x_max, x_stepsize)
+    ax.plot(avg_err_x, avg_err[:n_steps], color='r', linewidth=5)
     if target == 'h':
         ax.set_xlim(1)
         ax.set_ylim(0,10)
@@ -63,11 +53,24 @@ def plot_average_error(df, target='Tavg', t_min=-1, t_max=-1, x="flow-time", sce
     elif target == 'Tavg':
         ax.set_xlim(left=0)
         plt.ylabel("Temperature (K)")
-    plt.title('Average Error at Time Step t')
-    plt.xlabel("Time (s)")
+    else:
+        plt.ylabel(target)
+    if x=='flow-time':
+        plt.title('Average Error at Time Step t')
+        plt.xlabel("Time (s)")
+    else:
+        plt.title('Average Error')
+        plt.xlabel(x)
     
     plt.show()
     
     figure = ax.get_figure()
     
     return figure
+
+def save_figures(figures):
+    figures_directory = '../figures/' + datetime.datetime.now().strftime("%Y%m%d-%H%M") + '/'
+    os.mkdir(figures_directory)
+    for key, figure in figures.items():
+        figure.savefig(figures_directory + key + '.png', bbox_inches='tight')
+    return figures_directory
