@@ -50,6 +50,10 @@ class stes_model:
         addendum = joblib.load("../addenda/addendum_" + model_name + ".pkl")
         return model, addendum
     
+    #@classmethod
+    #def get_htc(Ti, Tw, flow-time):
+    #    qwfklwhfkwlejh
+    
 
     
     

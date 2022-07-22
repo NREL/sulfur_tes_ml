@@ -1,7 +1,8 @@
 import math
-
-d_i = 2*0.02
-d_o = 2*0.1
+r_i = 0.02
+r_o = 0.1
+d_i = 2*r_i
+d_o = 2*r_o
 pi = math.pi
 
 def get_rho(T):

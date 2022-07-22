@@ -6,8 +6,8 @@ import os
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import RepeatedKFold
 
-def get_scenario_index(data_dir):
-    scenario_index = pd.DataFrame({"filepath": glob.glob(os.path.join(data_dir, "ML_*_*.csv"))})
+def get_scenario_index(data_dir, filename_pattern="ML_*_*.csv"):
+    scenario_index = pd.DataFrame({"filepath": glob.glob(os.path.join(data_dir, filename_pattern))})
     return scenario_index
 
 def get_cv(n_repeats=1, random_state=-1):
@@ -21,14 +21,14 @@ def get_index_splits(scenario_index, random_state=-1):
         random_state = random.randrange(2652124)
     cv = get_cv(random_state=random_state)
     train_and_val_index, test_index  = next(cv.split(scenario_index.index))
-    return train_and_val_index, test_index
+    return train_index, test_index
 
-def get_dataframe(scenario_index, selected_index, t_min=-1, t_max=-1):
-    """ Load data from files in scenario_index with indices matching ones in selected_index"""
+def get_dataframe(scenario_index, split_index, t_min=-1, t_max=-1, include_Ti=True):
+    """ Load data from files in scenario_index with indices matching ones in split_index"""
     df_arr = []
-    for f in scenario_index.loc[selected_index].filepath:
-        Tw = float(f.split("/")[-1].split("_")[1])
-        Ti = float(f.split("/")[-1].split("_")[2].replace(".csv", ""))
+    for f in scenario_index.loc[split_index].filepath:
+        if include_Ti:
+            Ti = float(f.split("/")[-1].split("_")[2].replace(".csv", ""))
         f_df = pd.read_csv(f)
         f_df["Ti"] = Ti
         if t_min > 0:

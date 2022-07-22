@@ -23,26 +23,6 @@ from stesml.postprocessing_tools import get_h_from_T
 
 from tensorflow.keras.callbacks import EarlyStopping
 
-earlystopping_callback = EarlyStopping(
-    monitor="val_loss",
-    min_delta=0,
-    patience=2,
-    verbose=0,
-    mode="auto",
-    baseline=None,
-    restore_best_weights=True,
-)
-        
-def build_NN_model(n_layers=3, n_hidden_units=50):
-    model = Sequential()
-    model.add(Dense(n_hidden_units, activation='relu', input_shape=(3,)))
-    for i in range(n_layers-1):
-        model.add(Dense(n_hidden_units, activation='relu'))
-    model.add(Dense(1))
-    model.compile(optimizer='adam', loss='mse')
-    model.build()
-    return model
-
 def get_model(model_type, parameters):
     if model_type == "XGBoost":
         # No need to return model for XGBoost
@@ -56,7 +36,13 @@ def get_model(model_type, parameters):
     elif model_type == "NN":
         n_layers = parameters['n_layers']
         n_hidden_units = parameters['n_hidden_units']
-        model = build_NN_model(n_layers, n_hidden_units)
+        model = Sequential()
+        model.add(Dense(n_hidden_units, activation='relu', input_shape=(3,)))
+        for i in range(n_layers-1):
+            model.add(Dense(n_hidden_units, activation='relu'))
+        model.add(Dense(1))
+        model.compile(optimizer='adam', loss='mse')
+        model.build()
     else:
         print("Please choose either XGBoost, RandomForest, or NN for model type")
         return None
@@ -70,6 +56,15 @@ def fit_model(model, model_type, X_train, y_train, X_val=None, y_val=None, param
     else:
         eval_name = 'val'
     if model_type == "NN":
+        earlystopping_callback = EarlyStopping(
+            monitor="val_loss",
+            min_delta=0,
+            patience=2,
+            verbose=0,
+            mode="auto",
+            baseline=None,
+            restore_best_weights=True,
+        )
         batch_size = parameters['batch_size']
         epochs = parameters['epochs']
         model.fit(x=X_train, 
@@ -95,22 +90,22 @@ def fit_model(model, model_type, X_train, y_train, X_val=None, y_val=None, param
         model.fit(X_train, y_train)
     return model
     
-def get_predictions(model, X_val, y_val=None, scale=False, scaler_y=None, model_type='NN'):
+def get_predictions(model, X, y=None, scale=False, scaler_y=None, model_type='NN'):
     if model_type == 'XGBoost':
-        X_val = xgb.DMatrix(data=X_val)
-    y_hat = model.predict(X_val)
+        X = xgb.DMatrix(data=X)
+    y_hat = model.predict(X)
     if scale:
         y_hat = scaler_y.inverse_transform(y_hat.reshape(-1,1)).reshape(1,-1)[0]
-        y_val = scaler_y.inverse_transform(y_val.reshape(-1,1)).reshape(1,-1)[0]
-        return y_hat, y_val
+        y = scaler_y.inverse_transform(y.reshape(-1,1)).reshape(1,-1)[0]
+        return y_hat, y
     else:
         return y_hat
 
-def evaluate_results(metric, y_val, y_hat):
+def evaluate_results(metric, y, y_hat):
     if metric == 'rmse':
-        result = mean_squared_error(y_val, y_hat, squared=False)
+        result = mean_squared_error(y, y_hat, squared=False)
     elif metric == 'r2':
-        result = r2_score(y_val, y_hat)
+        result = r2_score(y, y_hat)
     else:
         print('Metric must either be rmse or r2')
         return None
@@ -188,7 +183,7 @@ def train_model(data_dir=None, model_type='NN', target='Tavg', scale=True, param
     # Break out test set
     train_index, test_index = get_index_splits(scenario_index, random_state)
 
-    # Get train data
+    # Get train data, and test data for validation while training
     X_train, y_train = get_split_data(scenario_index, train_index, target, t_min, t_max, features)
     X_test, y_test = get_split_data(scenario_index, test_index, target, t_min, t_max, features)
     
@@ -205,7 +200,7 @@ def train_model(data_dir=None, model_type='NN', target='Tavg', scale=True, param
     # Train model
     model = fit_model(model, model_type, X_train, y_train, X_test, y_test, parameters=parameters)
     
-    # Build addendum
+    # Populate addendum
     addendum = {'train_index': train_index, 'test_index': test_index, 'scaler_X': scaler_X, 'scaler_y': scaler_y}
     
     return model, addendum
