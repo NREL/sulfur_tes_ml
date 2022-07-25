@@ -20,9 +20,8 @@ def plot_results(df, target=None, x="flow-time", scenario_features=["Tw", "Ti"])
         else:
             ax = grp.plot(x=x, y=target+'_hat', c='DarkOrange', linewidth=2.5, label="Predicted", figsize=(6,4))
         if target == 'h':
-            ax.set_xscale('log')
-            ax.set_xlim(0.1,7200)
-            ax.set_yscale('log')
+            ax.set_xlim(1,7200)
+            ax.set_ylim(0,100)
         if target in df:
             plot = grp.plot(x=x, y=target+'_hat', c='DarkOrange', linewidth=2.5, label="Predicted", ax=ax, figsize=(6,4))
         title = ''
