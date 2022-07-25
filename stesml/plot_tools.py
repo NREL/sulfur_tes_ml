@@ -7,15 +7,23 @@ from itertools import zip_longest
 plt.rcParams["figure.dpi"] = 200
 plt.style.use('ggplot')
 
-def plot_results(df, model_type, target='Tavg', x="flow-time", scenario_features=["Tw", "Ti"]):
+def plot_results(df, target='Tavg', x="flow-time", scenario_features=["Tw", "Ti"]):
     figures = {}
     for idx, grp in df.groupby(scenario_features):
-        ax = grp.plot(x=x, y=target, c='DarkBlue', linewidth=2.5, label="Expected", figsize=(6,4))
+        if 'h_hat' in df:
+            target = 'h'
+        else:
+            target = 'Tavg'
+        if target in df:
+            ax = grp.plot(x=x, y=target, c='DarkBlue', linewidth=2.5, label="Expected", figsize=(6,4))
+        else:
+            ax = grp.plot(x=x, y=target+'_hat', c='DarkOrange', linewidth=2.5, label="Predicted", figsize=(6,4))
         if target == 'h':
             ax.set_xscale('log')
-            ax.set_xlim(0.001,7200)
+            ax.set_xlim(0.1,7200)
             ax.set_yscale('log')
-        plot = grp.plot(x=x, y=target+'_hat', c='DarkOrange', linewidth=2.5, label="Predicted ({model_type})".format(model_type=model_type), ax=ax, figsize=(6,4))
+        if target in df:
+            plot = grp.plot(x=x, y=target+'_hat', c='DarkOrange', linewidth=2.5, label="Predicted", ax=ax, figsize=(6,4))
         title = ''
         key = ''
         for i, sf in enumerate(scenario_features):

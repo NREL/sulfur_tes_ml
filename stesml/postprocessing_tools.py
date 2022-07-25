@@ -58,7 +58,7 @@ def get_dT_dt(T_list, i, timestep):
     #
     #           T_(t+1) - T_(t-1)
     # dT/dt = --------------------
-    #              2 * timestep
+    #               timestep
     #
     ######################
     T_prev = T_list[i - 1][0]

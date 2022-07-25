@@ -20,7 +20,7 @@ def get_index_splits(scenario_index, random_state=-1):
     if random_state == -1:
         random_state = random.randrange(2652124)
     cv = get_cv(random_state=random_state)
-    train_and_val_index, test_index  = next(cv.split(scenario_index.index))
+    train_index, test_index  = next(cv.split(scenario_index.index))
     return train_index, test_index
 
 def get_dataframe(scenario_index, split_index, t_min=-1, t_max=-1, include_Ti=True):
