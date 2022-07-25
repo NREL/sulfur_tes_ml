@@ -96,10 +96,10 @@ def get_predictions(model, X, y=None, scale=False, scaler_y=None, model_type='NN
     y_hat = model.predict(X)
     if scale:
         y_hat = scaler_y.inverse_transform(y_hat.reshape(-1,1)).reshape(1,-1)[0]
-        y = scaler_y.inverse_transform(y.reshape(-1,1)).reshape(1,-1)[0]
-        return y_hat, y
-    else:
-        return y_hat
+        if y is not None:
+            y = scaler_y.inverse_transform(y.reshape(-1,1)).reshape(1,-1)[0]
+            return y_hat, y
+    return y_hat
 
 def evaluate_results(metric, y, y_hat):
     if metric == 'rmse':
@@ -249,22 +249,26 @@ def test_model(model, model_type='NN', data_dir=None, target='Tavg', scale=True,
 def get_T_from_h_results(test_df, plot=False, hybrid_model=False, hybrid_split_time=-1):
     T_hat = np.array([])
     T_expected = np.array([])
-    for idx, grp in test_df.groupby(["Tw", "Ti"]):
-        T_hat_grp = get_T_from_h(grp, hybrid_model, hybrid_split_time)
-        if plot:
+    if plot:
+        for idx, grp in test_df.groupby(["Tw", "Ti"]):
+            T_hat_grp = get_T_from_h(grp, hybrid_model, hybrid_split_time)
             # Plotting results
             grp["T_hat"] = T_hat_grp
             ax = grp.plot(x="flow-time", y='Tavg', c='DarkBlue', linewidth=2.5, label="Expected")
             plot = grp.plot(x="flow-time", y='T_hat', c='DarkOrange', linewidth=2.5, label="Predicted", ax=ax)
             plt.title('Tw = {Tw}  Ti = {Ti}'.format(Tw=idx[0], Ti=idx[1]))
             plt.show()
-        T_hat = np.concatenate((T_hat, T_hat_grp))
-        T_expected = np.concatenate((T_expected, grp["Tavg"]))
-        
-    rmse = mean_squared_error(T_expected, T_hat, squared=False)
-    r2 = r2_score(T_expected, T_hat)
+            T_hat = np.concatenate((T_hat, T_hat_grp))
+            T_expected = np.concatenate((T_expected, grp["Tavg"]))
+
+        rmse = mean_squared_error(T_expected, T_hat, squared=False)
+        r2 = r2_score(T_expected, T_hat)
+        return rmse, r2
+    else:
+        T_hat = get_T_from_h(test_df, hybrid_model, hybrid_split_time)
+        test_df['Tavg_hat'] = T_hat
+        return test_df
     
-    return rmse, r2
 
 def get_h_from_T_results(test_df, plot=False):
     h_hat = np.array([])

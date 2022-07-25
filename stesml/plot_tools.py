@@ -7,13 +7,14 @@ from itertools import zip_longest
 plt.rcParams["figure.dpi"] = 200
 plt.style.use('ggplot')
 
-def plot_results(df, target='Tavg', x="flow-time", scenario_features=["Tw", "Ti"]):
+def plot_results(df, target=None, x="flow-time", scenario_features=["Tw", "Ti"]):
     figures = {}
     for idx, grp in df.groupby(scenario_features):
-        if 'h_hat' in df:
-            target = 'h'
-        else:
-            target = 'Tavg'
+        if target is None:
+            if 'h_hat' in df:
+                target = 'h'
+            elif 'Tavg_hat' in df:
+                target = 'Tavg'
         if target in df:
             ax = grp.plot(x=x, y=target, c='DarkBlue', linewidth=2.5, label="Expected", figsize=(6,4))
         else:
