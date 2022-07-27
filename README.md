@@ -1,5 +1,5 @@
 # Sulfur TES ML
-##### *Build, train, and test models with customizable features and targets*
+#### *Build, train, and test models with customizable features and targets*
 This repository contains code originally created to develop surrogate ML models to mimic the utility of CFD simultations of Sulfur TES systems. It has been adapted to provide a comprehensive package for building, training, validating, testing, and optimizing regression models with customzable features and targets.
 
 There is native support for the followng model types:
@@ -8,8 +8,8 @@ There is native support for the followng model types:
 - RandomForest
 
 ## Getting Started
-#### 1 - *Clone this repository*
-#### 2 -  *Create the conda environment from the `envSulfurTES.yaml` file*
+### 1 - *Clone this repository*
+### 2 -  *Create the conda environment from the `envSulfurTES.yaml` file*
  - Navigate to the `sulfur_tes_ml` directory
  - Execute the following command:
 ```sh
@@ -18,24 +18,24 @@ conda env create -p ./envSulfurTES -f envSulfurTES.yaml
 This will create the conda environment within a new `envSulfurTES` directory.
 
 ** *Note: You may get an error involving pip installation. You can ignore this error.*
-#### 3 - *Activate the conda environment*
+### 3 - *Activate the conda environment*
 From the `sulfur_tes_ml` directory, run:
 ```
 conda activate ./envSulfurTES -f envSulfurTES.yaml
 ```
-#### 4 - *Build the `stesml` package*
+### 4 - *Build the `stesml` package*
 From the `sulfur_tes_ml` directory, run:
 ```
 python setup.py install
 ```
 The `stesml` package contains the utility functions used in the Jupyter notebooks.
-#### 5 - *Open Jupyter Lab*
+### 5 - *Open Jupyter Lab*
 From the `sulfur_tes_ml` directory, run:
 ```
 jupyter lab
 ```
 This will open Jupyter Lab in your default browser.
-#### 6 - *Using Jupyter Lab*
+### 6 - *Using Jupyter Lab*
 - A detailed Jupyter Lab tutorial can be found [here](https://jupyterlab.readthedocs.io/en/stable/).
 - Open the `notebooks` folder
 - The following notebooks are stable:
@@ -51,7 +51,7 @@ This will open Jupyter Lab in your default browser.
     - ***STES_LSTM***: This notebook implements a Long Short-Term Memory recurrent neural network model.
     - ***STES_PINN***: This notebook implements a physics-informed neural network with a custom loss function.
     - ***Fluent_Out_to_CSV***: This notebook takes data from a FLuent .out file, calculates secondary properties, and outputs data to a .csv file
-#### 7 - *Using PySINDy*
+### 7 - *Using PySINDy*
 If you want too use PySINDy to learn the governing equations from your dataset, perform the following steps:
 - Ensure the `python` you are using is local to your conda environment by running:
 ```
@@ -72,7 +72,7 @@ python -m pip install pysindy
 ```
 This process ensures you are installing the PySINDy package locally within the conda environment.
 
-#### 8 - *Deactivate the conda environment*
+### 8 - *Deactivate the conda environment*
 To deactivate the environment, run:
 ```
 conda deactivate
