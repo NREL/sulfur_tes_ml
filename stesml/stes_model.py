@@ -41,7 +41,7 @@ class stes_model:
             model.save("../models/" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H%M"))
         elif model_type == 'XGBoost':
             model.save_model("../models/" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H%M") + ".json")
-        joblib.dump(addendum, "../addenda/addendum_" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H%M") + ".pkl")
+        joblib.dump(addendum, "../models/addenda/addendum_" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H%M") + ".pkl")
         
     @classmethod
     def load_model(cls, model_type='NN', model_name=None):
@@ -50,7 +50,7 @@ class stes_model:
         elif model_type == 'XGBoost':
             model = xgb.Booster()
             model.load_model("../models/" + model_name + ".json")
-        addendum = joblib.load("../addenda/addendum_" + model_name + ".pkl")
+        addendum = joblib.load("../models/addenda/addendum_" + model_name + ".pkl")
         return model, addendum
     
     @classmethod
