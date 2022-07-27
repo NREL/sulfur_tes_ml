@@ -16,6 +16,7 @@ There is native support for the followng model types:
 conda env create -p ./envSulfurTES -f envSulfurTES.yaml
 ```
 This will create the conda environment within a new `envSulfurTES` directory.
+
 ** *Note: You may get an error involving pip installation. You can ignore this error.*
 #### 3 - *Activate the conda environment*
 From the `sulfur_tes_ml` directory, run:
