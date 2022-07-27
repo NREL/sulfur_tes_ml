@@ -16,6 +16,7 @@ There is native support for the followng model types:
 conda env create -p ./envSulfurTES -f envSulfurTES.yaml
 ```
 This will create the conda environment within a new `envSulfurTES` directory.
+
 ** *Note: You may get an error involving pip installation. You can ignore this error.*
 #### 3 - *Activate the conda environment*
 From the `sulfur_tes_ml` directory, run:
@@ -38,6 +39,7 @@ This will open Jupyter Lab in your default browser.
 - A detailed Jupyter Lab tutorial can be found [here](https://jupyterlab.readthedocs.io/en/stable/).
 - Open the `notebooks` folder
 - The following notebooks are stable:
+    - ***STES_Predictions***: Use this notebook to make predictions for a charging scenario.
     - ***STES_Train_and_Validate***: Use this notebook to train and validate a model.
     - ***STES_Optuna_Studies***: Use this notebook to optimize the hyperparameters of your model with Optuna.
     - ***STES_Optuna_Visualization***: Use this notebook to see visualizations of an Optuna study.
