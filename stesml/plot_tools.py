@@ -20,19 +20,26 @@ def plot_results(df, target=None, x="flow-time", scenario_features=["Tw", "Ti"])
         else:
             ax = grp.plot(x=x, y=target+'_hat', c='DarkOrange', linewidth=2.5, label="Predicted", figsize=(6,4))
         if target == 'h':
-            ax.set_xlim(1,7200)
+            title = 'Predicting h for '
+            key = 'h_'
+            plt.ylabel("Heat Transfer Coefficient (W/m^2*K)")
+            ax.set_xlim(left=1)
             ax.set_ylim(0,100)
+        elif target == 'Tavg':
+            title = 'Predicting T for '
+            key = 'T_'
+            plt.ylabel("Sulfur Average Temperature (K)")
         if target in df:
             plot = grp.plot(x=x, y=target+'_hat', c='DarkOrange', linewidth=2.5, label="Predicted", ax=ax, figsize=(6,4))
-        title = ''
-        key = ''
+        
         for i, sf in enumerate(scenario_features):
-            key += f'{idx[i]}'
+            key += f'{scenario_features[i]}_{idx[i]}'
             title += f'{sf} = {idx[i]}'
             if i != len(scenario_features) - 1:
                 title += ' '
                 key += '_'
         plt.title(title)
+        plt.xlabel("Time (s)")
         plt.show()
         fig = ax.get_figure()
         figures[key] = fig

@@ -54,9 +54,8 @@ class stes_model:
         return model, addendum
     
     @classmethod
-    def predict_h(cls, Ti=500, Tw=600, end_time=7200, stepsize=0.1, model_name='XGBoost_h_model'):
+    def predict_h(cls, Ti=500, Tw=600, end_time=7200, stepsize=0.1, model_name='XGBoost_h_model', model_type='XGBoost'):
         # Load the model
-        model_type = 'XGBoost'
         model, addendum = stes_model.load_model(model_type, model_name)
         # Format the input data
         flow_time = np.arange(0, end_time, stepsize).tolist()
@@ -67,66 +66,94 @@ class stes_model:
         h_df['Tw'] = Tw_list
         h_df['Ti'] = Ti_list
         X = h_df.to_numpy()
+        if model_type == 'NN':
+            # Scale the input data
+            X = addendum['scaler_X'].transform(X)
+            scale = True
+        else:
+            scale = False
         # Get predictions
-        y_hat = get_predictions(model, X, model_type='XGBoost')
+        y_hat = get_predictions(model, X, model_type=model_type, scale=scale, scaler_y=addendum['scaler_y'])
         h_df['h_hat'] = y_hat
         return h_df
     
     @classmethod
-    def predict_h_at_time_t(cls, Ti=500, Tw=600, time=2000, model_name='XGBoost_h_model'):
+    def predict_h_at_time_t(cls, Ti=500, Tw=600, time=2000, model_name='XGBoost_h_model', model_type='XGBoost'):
         # Load the model
-        model_type = 'XGBoost'
         model, addendum = stes_model.load_model(model_type, model_name)
         # Format the input data
         X = [[time, Tw, Ti]]
+        if model_type == 'NN':
+            # Scale the input data
+            X = addendum['scaler_X'].transform(X)
+            scale = True
+        else:
+            scale = False
         # Get prediction
-        y_hat = get_predictions(model, X, model_type=model_type)
+        y_hat = get_predictions(model, X, model_type=model_type, scale=scale, scaler_y=addendum['scaler_y'])
         return y_hat[0]
     
     @classmethod
-    def predict_T(cls, Ti=500, Tw=600, end_time=7200, stepsize=0.1, model_name='NN_T_model_tLessThan360'):
-        # This is the hybrid model, so first we need to get h predictions
-        h_df = cls.predict_h(Ti, Tw, end_time, stepsize)
-        # Load the NN model
-        model_type = 'NN'
-        model, addendum = stes_model.load_model(model_type, model_name)
-        # Format the input data
-        flow_time = np.arange(0, end_time, stepsize).tolist()
-        Ti_list = [Ti] * len(flow_time)
-        Tw_list = [Tw] * len(flow_time)
-        T_df = pd.DataFrame()
-        T_df['flow-time'] = flow_time
-        T_df['Tw'] = Tw_list
-        T_df['Ti'] = Ti_list
-        X = T_df.to_numpy()
-        # Scale the input data
-        X_scaled = addendum['scaler_X'].transform(X)
-        # Get predictions
-        y_hat = get_predictions(model, X_scaled, model_type='NN', scale=True, scaler_y=addendum['scaler_y'])
-        T_df['Tavg_hat'] = y_hat
-        h_df['Tavg_hat'] = T_df['Tavg_hat']
-        # Combine T predictions with T calculations from h
-        T_df = get_T_from_h_results(h_df, plot=False, hybrid_model=True, hybrid_split_time=360)
-        T_df.drop('h_hat',axis=1,inplace=True)
-        return T_df
+    def predict_T(cls, Ti=500, Tw=600, end_time=7200, stepsize=0.1, T_model_name='NN_T_model_tLessThan360', T_model_type='NN',  
+                  hybrid_model=False, h_model_name='XGBoost_h_model', h_model_type='XGBoost', hybrid_split_time=360):
+        if hybrid_model:
+            # This is the hybrid model, so first we need to get h predictions
+            h_df = cls.predict_h(Ti, Tw, end_time, stepsize, h_model_name, h_model_type)
+            # Load the Temperature model
+            model, addendum = stes_model.load_model(T_model_type, T_model_name)
+            # Format the input data
+            flow_time = np.arange(0, end_time, stepsize).tolist()
+            Ti_list = [Ti] * len(flow_time)
+            Tw_list = [Tw] * len(flow_time)
+            T_df = pd.DataFrame()
+            T_df['flow-time'] = flow_time
+            T_df['Tw'] = Tw_list
+            T_df['Ti'] = Ti_list
+            X = T_df.to_numpy()
+            if T_model_type == 'NN':
+                # Scale the input data
+                X = addendum['scaler_X'].transform(X)
+                scale = True
+            else:
+                scale = False
+            # Get predictions
+            y_hat = get_predictions(model, X, model_type=T_model_type, scale=scale, scaler_y=addendum['scaler_y'])
+            T_df['Tavg_hat'] = y_hat
+            h_df['Tavg_hat'] = T_df['Tavg_hat']
+            # Combine T predictions with T calculations from h
+            T_df = get_T_from_h_results(h_df, plot=False, hybrid_model=True, hybrid_split_time=hybrid_split_time)
+            T_df.drop('h_hat',axis=1,inplace=True)
+            return T_df
+        else:
+            # Load the model
+            model, addendum = stes_model.load_model(T_model_type, T_model_name)
+            # Format the input data
+            flow_time = np.arange(0, end_time, stepsize).tolist()
+            Ti_list = [Ti] * len(flow_time)
+            Tw_list = [Tw] * len(flow_time)
+            T_df = pd.DataFrame()
+            T_df['flow-time'] = flow_time
+            T_df['Tw'] = Tw_list
+            T_df['Ti'] = Ti_list
+            X = T_df.to_numpy()
+            if T_model_type == 'NN':
+                # Scale the input data
+                X = addendum['scaler_X'].transform(X)
+                scale = True
+            else:
+                scale = False
+            # Get predictions
+            y_hat = get_predictions(model, X, model_type=T_model_type, scale=scale, scaler_y=addendum['scaler_y'])
+            T_df['Tavg_hat'] = y_hat
+            return T_df
+    
     
     @classmethod
-    def predict_T_at_time_t(cls, Ti=500, Tw=600, time=2000, model_name='NN_T_model_tLessThan360'):
-        # If before hybrid split time (t=360), just use the NN model to get the prediction
-        if time <= 360:
-            # Load the model
-            model_type = 'NN'
-            model, addendum = stes_model.load_model(model_type, model_name)
-            # Format the input data
-            X = np.array([[time, Tw, Ti]])
-            # Scale the input data
-            X_scaled = addendum['scaler_X'].transform(X)
-            # Get prediction
-            y_hat = get_predictions(model, X_scaled, model_type='NN', scale=True, scaler_y=addendum['scaler_y'])
-            return y_hat[0]
-        else:
-            # If after hybrid split time, simulate up until 'time' with a default stepsize of 0.1 seconds
-            T_df = cls.predict_T(Ti, Tw, end_time=time, stepsize=0.1)
-            # And return only the prediction for t=time (the last prediction)
-            Tavg_hat = T_df.iloc[-1]['Tavg_hat']
-            return Tavg_hat
+    def predict_T_at_time_t(cls, Ti=500, Tw=600, time=7200, T_model_name='NN_T_model_tLessThan360', T_model_type='NN',  
+                            hybrid_model=False, h_model_name='XGBoost_h_model', h_model_type='XGBoost', hybrid_split_time=360):
+        # Simulate up until 'time' with a default stepsize of 0.1 seconds
+        T_df = cls.predict_T(Ti, Tw, end_time=time, stepsize=0.1, T_model_name=T_model_name, T_model_type=T_model_type, 
+                             hybrid_model=hybrid_model, h_model_name=h_model_name,  h_model_type=h_model_type, hybrid_split_time=hybrid_split_time)
+        # And return only the prediction for t=time (the last prediction)
+        Tavg_hat = T_df.iloc[-1]['Tavg_hat']
+        return Tavg_hat
