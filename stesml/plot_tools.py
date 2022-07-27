@@ -77,7 +77,7 @@ def plot_average_error(df, target='Tavg', x="flow-time", x_max=7200, x_stepsize=
     return figure
 
 def save_figures(figures):
-    figures_directory = '../figures/' + datetime.datetime.now().strftime("%Y%m%d-%H%M") + '/'
+    figures_directory = '../figures/' + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '/'
     os.mkdir(figures_directory)
     for key, figure in figures.items():
         figure.savefig(figures_directory + key + '.png', bbox_inches='tight')
