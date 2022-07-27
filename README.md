@@ -38,6 +38,7 @@ This will open Jupyter Lab in your default browser.
 - A detailed Jupyter Lab tutorial can be found [here](https://jupyterlab.readthedocs.io/en/stable/).
 - Open the `notebooks` folder
 - The following notebooks are stable:
+    - ***STES_Predictions***: Use this notebook to make predictions for a charging scenario.
     - ***STES_Train_and_Validate***: Use this notebook to train and validate a model.
     - ***STES_Optuna_Studies***: Use this notebook to optimize the hyperparameters of your model with Optuna.
     - ***STES_Optuna_Visualization***: Use this notebook to see visualizations of an Optuna study.
