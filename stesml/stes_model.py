@@ -54,9 +54,8 @@ class stes_model:
         return model, addendum
     
     @classmethod
-    def predict_h(cls, Ti=500, Tw=600, end_time=7200, stepsize=0.1):
+    def predict_h(cls, Ti=500, Tw=600, end_time=7200, stepsize=0.1, model_name='XGBoost_h_model'):
         # Load the model
-        model_name = 'XGBoost_h_model'
         model_type = 'XGBoost'
         model, addendum = stes_model.load_model(model_type, model_name)
         # Format the input data
@@ -74,9 +73,8 @@ class stes_model:
         return h_df
     
     @classmethod
-    def predict_h_at_time_t(cls, Ti=500, Tw=600, time=2000):
+    def predict_h_at_time_t(cls, Ti=500, Tw=600, time=2000, model_name='XGBoost_h_model'):
         # Load the model
-        model_name = 'XGBoost_h_model'
         model_type = 'XGBoost'
         model, addendum = stes_model.load_model(model_type, model_name)
         # Format the input data
@@ -86,11 +84,10 @@ class stes_model:
         return y_hat[0]
     
     @classmethod
-    def predict_T(cls, Ti=500, Tw=600, end_time=7200, stepsize=0.1):
+    def predict_T(cls, Ti=500, Tw=600, end_time=7200, stepsize=0.1, model_name='NN_T_model_tLessThan360'):
         # This is the hybrid model, so first we need to get h predictions
         h_df = cls.predict_h(Ti, Tw, end_time, stepsize)
         # Load the NN model
-        model_name = 'NN_T_model_tLessThan360'
         model_type = 'NN'
         model, addendum = stes_model.load_model(model_type, model_name)
         # Format the input data
@@ -114,11 +111,10 @@ class stes_model:
         return T_df
     
     @classmethod
-    def predict_T_at_time_t(cls, Ti=500, Tw=600, time=2000):
+    def predict_T_at_time_t(cls, Ti=500, Tw=600, time=2000, model_name='NN_T_model_tLessThan360'):
         # If before hybrid split time (t=360), just use the NN model to get the prediction
         if time <= 360:
             # Load the model
-            model_name = 'NN_T_model_tLessThan360'
             model_type = 'NN'
             model, addendum = stes_model.load_model(model_type, model_name)
             # Format the input data
