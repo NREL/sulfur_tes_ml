@@ -94,6 +94,17 @@ class stes_model:
         return y_hat[0]
     
     @classmethod
+    def predict_average_h(cls, Ti=500, Tw=600, start_time=0, end_time=7200, stepsize=0.1, model_name='XGBoost_h_model', model_type='XGBoost'):
+        # Simulate up until 'time' with a default stepsize of 0.1 seconds
+        h_df = cls.predict_h(Ti, Tw, end_time=end_time, stepsize=stepsize, model_name=model_name, model_type=model_type)
+        h_df.set_index('flow-time', inplace=True)
+        h_df = h_df.truncate(before=start_time, after=end_time)
+        print(h_df)
+        # And return only the prediction for t=time (the last prediction)
+        average_h_hat = h_df['h_hat'].mean()
+        return average_h_hat
+    
+    @classmethod
     def predict_T(cls, Ti=500, Tw=600, end_time=7200, stepsize=0.1, T_model_name='NN_T_model_tLessThan360', T_model_type='NN',  
                   hybrid_model=False, h_model_name='XGBoost_h_model', h_model_type='XGBoost', hybrid_split_time=360):
         if hybrid_model:
@@ -157,3 +168,18 @@ class stes_model:
         # And return only the prediction for t=time (the last prediction)
         Tavg_hat = T_df.iloc[-1]['Tavg_hat']
         return Tavg_hat
+    
+    @classmethod
+    def predict_average_T(cls, Ti=500, Tw=600, start_time=0, end_time=7200, stepsize=0.1, T_model_name='NN_T_model_tLessThan360', T_model_type='NN',  
+                            hybrid_model=False, h_model_name='XGBoost_h_model', h_model_type='XGBoost', hybrid_split_time=360):
+        # Simulate up until 'time' with a default stepsize of 0.1 seconds
+        T_df = cls.predict_T(Ti, Tw, end_time=end_time, stepsize=stepsize, T_model_name=T_model_name, T_model_type=T_model_type, 
+                             hybrid_model=hybrid_model, h_model_name=h_model_name,  h_model_type=h_model_type, hybrid_split_time=hybrid_split_time)
+        T_df.set_index('flow-time', inplace=True)
+        T_df = T_df.truncate(before=start_time, after=end_time)
+        print(T_df)
+        # And return only the prediction for t=time (the last prediction)
+        average_Tavg_hat = T_df['Tavg_hat'].mean()
+        return average_Tavg_hat
+    
+    
