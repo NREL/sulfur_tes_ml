@@ -28,6 +28,7 @@ class stes_model:
         if truncated and model_type == 'NN':
             return cls.optimized_model_parameters[model_type + '_trunc']
         return cls.optimized_model_parameters[model_type]
+    
     @classmethod
     def set_parameters(cls, model_type, parameters, truncated=False):
         if truncated:
@@ -41,6 +42,7 @@ class stes_model:
         elif model_type == 'XGBoost':
             model.save_model("../models/" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H%M") + ".json")
         joblib.dump(addendum, "../addenda/addendum_" + model_type + "_" + datetime.datetime.now().strftime("%Y%m%d-%H%M") + ".pkl")
+        
     @classmethod
     def load_model(cls, model_type='NN', model_name=None):
         if model_type == 'NN':
