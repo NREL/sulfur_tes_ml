@@ -77,3 +77,13 @@ To deactivate the environment, run:
 ```
 conda deactivate
 ```
+
+# Credit
+
+Written by: Kevin Menear (kevin.menear@nrel.gov) and Dmitry Duplyakin (dmitry.duplyakin@nrel.gov) in collaboration with the National Renewable Energy Laboratories.
+
+Full team: Kevin Menear, Dmitry Duplyakin, Michael J. Martin, Martinek, Mohammad Rahimi, Janna Martinek, Zhiwen Ma
+
+# License
+
+Refer to the file called: LICENSE.
