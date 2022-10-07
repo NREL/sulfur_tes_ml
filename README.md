@@ -2,7 +2,7 @@
 #### *Build, train, and test models with customizable features and targets*
 This repository contains code originally created to develop surrogate ML models to mimic the utility of CFD simultations of Sulfur TES systems. It has been adapted to provide a comprehensive package for building, training, validating, testing, and optimizing regression models with customzable features and targets.
 
-There is native support for the followng model types:
+There is native support for the following model types:
 - Neural Network (Tensorflow with Keras)
 - XGBoost
 - RandomForest
