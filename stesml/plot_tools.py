@@ -22,13 +22,13 @@ def plot_results(df, target=None, x="flow-time", scenario_features=["Tw", "Ti"])
         if target == 'h':
             title = 'Predicting h for '
             key = 'h_'
-            plt.ylabel("Heat Transfer Coefficient (W/m^2*K)")
+            plt.ylabel(r'Heat Transfer Coefficient $(\frac{W}{m^{2}K})$')
             ax.set_xlim(left=1)
             ax.set_ylim(0,100)
         elif target == 'Tavg':
             title = 'Predicting T for '
             key = 'T_'
-            plt.ylabel("Sulfur Average Temperature (K)")
+            plt.ylabel(r'Sulfur Average Temperature $(K)$')
         if target in df:
             plot = grp.plot(x=x, y=target+'_hat', c='DarkOrange', linewidth=2.5, label="Predicted", ax=ax, figsize=(6,4))
         
@@ -64,14 +64,14 @@ def plot_average_error(df, target='Tavg', x="flow-time", x_max=7200, x_stepsize=
     if target == 'h':
         ax.set_xlim(1)
         ax.set_ylim(0,10)
-        plt.ylabel("Heat Transfer Coefficient (W/((m^2)K)")
+        plt.ylabel(r'Heat Transfer Coefficient $(\frac{W}{m^{2}K})$')
     elif target == 'Tavg':
         ax.set_xlim(left=0)
         plt.ylabel("Temperature (K)")
     else:
         plt.ylabel(target)
     if x=='flow-time':
-        plt.title('Average Error at Time Step t')
+        plt.title('Average Error vs Time')
         plt.xlabel("Time (s)")
     else:
         plt.title('Average Error')

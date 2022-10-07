@@ -13,6 +13,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 # Arguments marked as "Required" below must be included for upload to PyPI.
 # Fields marked as "Optional" may be commented out.
+
 setup(
     name='stesml',
     version=versioneer.get_version(),

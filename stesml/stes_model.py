@@ -9,23 +9,37 @@ from stesml.model_tools import get_predictions
 from stesml.model_tools import get_T_from_h_results
 
 class stes_model:
-    # Parameters for full training sets
-    NN_parameters = {'n_layers': 1, 'n_hidden_units': 82, 'batch_size': 2809, 'epochs': 10}
-    # Parameters for datasets liimited to t <= 360
-    NN_trunc_parameters = {'n_layers': 1, 'n_hidden_units': 82, 'batch_size': 10, 'epochs': 9}
+    # Parameters for t=[0,7200]
+    NN_parameters = {'n_layers': 1, 'n_hidden_units': 469, 'batch_size': 1471, 'learning_rate': 0.1249326681143701, 'epochs': 6}
     
-    XGB_parameters = {'learning_rate': 0.3, 'subsample': 1, 'colsample_bytree': 1, 'num_boost_round': 200}
+    # Parameters for datasets liimited to t <= 360
+    NN_trunc_parameters = {'n_layers': 2, 'n_hidden_units': 72, 'batch_size': 13, 'learning_rate': 0.00048181964195323425, 'epochs': 6}
+    
+    XGB_trunc_parameters = { # XGBoost Parameters for t_max = 360, t_min = 0.000001 (to eliminate t=0 datapoint)
+        'learning_rate': 0.30286086065588325,
+        'subsample': 0.10056651740231178,
+        'max_depth': 4,
+        'num_boost_round': 250
+    }
+    
+    XGB_parameters = { # XGBoost Parameters for t_min = 360
+        'learning_rate': 0.2744925045562501,
+        'subsample': 0.49442114581173074,
+        'max_depth': 4,
+        'num_boost_round': 250
+    }
+    
     RF_parameters = {'n_estimators': 150, 'max_depth': 64, 'max_samples': 0.8785156026362354}
     
     optimized_model_parameters = {
         'NN': NN_parameters, 'NN_trunc': NN_trunc_parameters,
-        'XGBoost': XGB_parameters,
+        'XGBoost': XGB_parameters, 'XGBoost_trunc': XGB_trunc_parameters,
         'RandomForest': RF_parameters
     }
     
     @classmethod
     def get_parameters(cls, model_type='NN', truncated=False):
-        if truncated and model_type == 'NN':
+        if truncated:
             return cls.optimized_model_parameters[model_type + '_trunc']
         return cls.optimized_model_parameters[model_type]
     
@@ -54,11 +68,11 @@ class stes_model:
         return model, addendum
     
     @classmethod
-    def predict_h(cls, Ti=500, Tw=600, end_time=7200, stepsize=0.1, model_name='XGBoost_h_model', model_type='XGBoost'):
+    def predict_h(cls, Ti=500, Tw=600, start_time=360, end_time=7200, stepsize=0.1, model_name='XGBoost_h_model', model_type='XGBoost'):
         # Load the model
         model, addendum = stes_model.load_model(model_type, model_name)
         # Format the input data
-        flow_time = np.arange(0, end_time, stepsize).tolist()
+        flow_time = np.arange(start_time, end_time, stepsize).tolist()
         Ti_list = [Ti] * len(flow_time)
         Tw_list = [Tw] * len(flow_time)
         h_df = pd.DataFrame()
@@ -109,7 +123,7 @@ class stes_model:
                   hybrid_model=False, h_model_name='XGBoost_h_model', h_model_type='XGBoost', hybrid_split_time=360):
         if hybrid_model:
             # This is the hybrid model, so first we need to get h predictions
-            h_df = cls.predict_h(Ti, Tw, end_time, stepsize, h_model_name, h_model_type)
+            h_df = cls.predict_h(Ti, Tw, 0, end_time, stepsize, h_model_name, h_model_type)
             # Load the Temperature model
             model, addendum = stes_model.load_model(T_model_type, T_model_name)
             # Format the input data
@@ -132,7 +146,7 @@ class stes_model:
             T_df['Tavg_hat'] = y_hat
             h_df['Tavg_hat'] = T_df['Tavg_hat']
             # Combine T predictions with T calculations from h
-            T_df = get_T_from_h_results(h_df, plot=False, hybrid_model=True, hybrid_split_time=hybrid_split_time)
+            T_df = get_T_from_h_results(h_df, plot=False, hybrid_model=True, hybrid_split_time=hybrid_split_time, predictions=True)
             T_df.drop('h_hat',axis=1,inplace=True)
             return T_df
         else:

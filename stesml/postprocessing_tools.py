@@ -48,6 +48,7 @@ def get_Cp(T):
         Cp = Cp*1000
         return Cp
 
+
 def get_As():
     As = pi * d_i # Heat transfer surface area, assuming unit length
     return As
@@ -103,13 +104,13 @@ def get_h_from_T(df):
 
 def get_T_from_h(df, hybrid_model=False, hybrid_split_time=-1):
     T_hat = list()
-    Ti = df["Ti"][0]
-    Tw = df["Tw"][0]
+    Ti = df["Ti"].iloc[0]
+    Tw = df["Tw"].iloc[0]
     Ac = get_Ac()
     As = get_As()
     for i, h in enumerate(df["h_hat"]):
-        if hybrid_model and df['flow-time'][i] < hybrid_split_time:
-            T = df["Tavg_hat"][i]
+        if hybrid_model and df['flow-time'].iloc[i] < hybrid_split_time:
+            T = df["Tavg_hat"].iloc[i]
             T_hat.append(T)
             T_prev = T
             h_prev = h
@@ -117,7 +118,7 @@ def get_T_from_h(df, hybrid_model=False, hybrid_split_time=-1):
         if i == 0:
             T = Ti
         else:
-            timestep = df["flow-time"][i] - df["flow-time"][i-1]
+            timestep = df["flow-time"].iloc[i] - df["flow-time"].iloc[i-1]
             m = get_m(T_prev, Ac)
             Cp = get_Cp(T_prev)
             slope = ( h*As*(Tw - T_prev) )/( m*Cp )

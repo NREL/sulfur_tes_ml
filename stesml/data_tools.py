@@ -27,10 +27,10 @@ def get_dataframe(scenario_index, split_index, t_min=-1, t_max=-1, include_Ti=Tr
     """ Load data from files in scenario_index with indices matching ones in split_index"""
     df_arr = []
     for f in scenario_index.loc[split_index].filepath:
+        f_df = pd.read_csv(f)
         if include_Ti:
             Ti = float(f.split("/")[-1].split("_")[2].replace(".csv", ""))
-        f_df = pd.read_csv(f)
-        f_df["Ti"] = Ti
+            f_df["Ti"] = Ti
         if t_min > 0:
             f_df = f_df[f_df['flow-time'] >= t_min]
         if t_max > 0:
