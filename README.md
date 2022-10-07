@@ -51,7 +51,7 @@ This will open Jupyter Lab in your default browser.
     - ***STES_PySINDy***: This notebook uses [PySINDY](https://pysindy.readthedocs.io/en/latest/) to learn governing equations from data.
     - ***STES_LSTM***: This notebook implements a Long Short-Term Memory recurrent neural network model.
     - ***STES_PINN***: This notebook implements a physics-informed neural network with a custom loss function.
-    - ***Fluent_Out_to_CSV***: This notebook takes data from a FLuent .out file, calculates secondary properties, and outputs data to a .csv file
+    - ***Fluent_Out_to_CSV***: This notebook takes data from a Fluent .out file, calculates secondary properties, and outputs data to a .csv file
 ### 7 - *Using PySINDy*
 If you want to use PySINDy to learn the governing equations from your dataset, perform the following steps:
 - Ensure the `python` you are using is local to your conda environment by running:
@@ -79,5 +79,12 @@ To deactivate the environment, run:
 conda deactivate
 ```
 
-### 9 - *Read the documentation*
-The code in the `stesml` package is documented on [the wiki](https://github.nrel.gov/amo-element16/sulfur_tes_ml/wiki).
+# Credit
+
+Written by: Kevin Menear (kevin.menear@nrel.gov) and Dmitry Duplyakin (dmitry.duplyakin@nrel.gov) in collaboration with the National Renewable Energy Laboratories.
+
+Full team: Kevin Menear, Dmitry Duplyakin, Michael J. Martin, Mohammad Rahimi, Janna Martinek, Zhiwen Ma
+
+# License
+
+Refer to the file called: LICENSE.
